@@ -82,6 +82,8 @@ export interface PermissionHandlerResult {
   isUnavailable: boolean;
   request: () => void;
   check: () => void;
+  dismiss: () => void;
+  openSettings: () => void;
 }
 
 /**
