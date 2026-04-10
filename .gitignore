@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# TypeScript
+*.tsbuildinfo
+
+# Expo
+.expo/
+
+# Testing
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+CLAUDE.md
+docs/superpowers/
+react-native-permission-handler-project-brief.md
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# npm
+*.tgz
