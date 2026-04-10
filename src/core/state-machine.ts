@@ -1,0 +1,87 @@
+import type { PermissionFlowEvent, PermissionFlowState } from "../types";
+
+export function transition(
+  state: PermissionFlowState,
+  event: PermissionFlowEvent,
+): PermissionFlowState {
+  switch (state) {
+    case "idle":
+      if (event.type === "CHECK") return "checking";
+      return state;
+
+    case "checking":
+      if (event.type === "CHECK_RESULT") {
+        switch (event.status) {
+          case "granted":
+          case "limited":
+            return "granted";
+          case "denied":
+            return "prePrompt";
+          case "blocked":
+            return "blockedPrompt";
+          case "unavailable":
+            return "unavailable";
+          default:
+            return state;
+        }
+      }
+      return state;
+
+    case "prePrompt":
+      if (event.type === "PRE_PROMPT_CONFIRM") return "requesting";
+      if (event.type === "PRE_PROMPT_DISMISS") return "denied";
+      return state;
+
+    case "requesting":
+      if (event.type === "REQUEST_RESULT") {
+        switch (event.status) {
+          case "granted":
+          case "limited":
+            return "granted";
+          case "denied":
+            return "denied";
+          case "blocked":
+            return "blockedPrompt";
+          default:
+            return state;
+        }
+      }
+      return state;
+
+    case "blockedPrompt":
+      if (event.type === "OPEN_SETTINGS") return "openingSettings";
+      return state;
+
+    case "openingSettings":
+      if (event.type === "SETTINGS_RETURN") return "recheckingAfterSettings";
+      return state;
+
+    case "recheckingAfterSettings":
+      if (event.type === "RECHECK_RESULT") {
+        switch (event.status) {
+          case "granted":
+          case "limited":
+            return "granted";
+          case "blocked":
+            return "blockedPrompt";
+          case "denied":
+            return "blockedPrompt";
+          default:
+            return state;
+        }
+      }
+      return state;
+
+    case "granted":
+    case "denied":
+    case "unavailable":
+      if (event.type === "CHECK") return "checking";
+      return state;
+
+    case "blocked":
+      return state;
+
+    default:
+      return state;
+  }
+}
