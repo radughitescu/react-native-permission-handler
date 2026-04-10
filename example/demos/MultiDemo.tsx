@@ -1,55 +1,8 @@
-import React, { useEffect, useState } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
+import { useMultiplePermissions } from "react-native-permission-handler";
 import { CAMERA, MICROPHONE, styles } from "./shared";
 
 export default function MultiDemo() {
-  const [nativeAvailable, setNativeAvailable] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    try {
-      const rnp = require("react-native-permissions");
-      rnp.check("ios.permission.CAMERA").then(() => {
-        setNativeAvailable(true);
-      }).catch(() => {
-        setNativeAvailable(false);
-      });
-    } catch {
-      setNativeAvailable(false);
-    }
-  }, []);
-
-  if (nativeAvailable === null) {
-    return (
-      <View style={styles.demoCard}>
-        <Text style={styles.demoTitle}>useMultiplePermissions</Text>
-        <Text style={styles.demoSubtitle}>Checking native module...</Text>
-      </View>
-    );
-  }
-
-  if (!nativeAvailable) {
-    return (
-      <View style={styles.demoCard}>
-        <Text style={styles.demoTitle}>useMultiplePermissions</Text>
-        <Text style={styles.demoSubtitle}>Native module not available</Text>
-        <View style={{ backgroundColor: "#FFF3CD", borderRadius: 10, padding: 16, marginTop: 8 }}>
-          <Text style={{ fontSize: 14, color: "#856404", marginBottom: 8, fontWeight: "600" }}>
-            react-native-permissions TurboModule not found
-          </Text>
-          <Text style={{ fontSize: 13, color: "#856404", lineHeight: 20 }}>
-            See the usePermissionHandler demo for details on this known issue.
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  return <MultiDemoFull />;
-}
-
-function MultiDemoFull() {
-  const { useMultiplePermissions } = require("react-native-permission-handler");
-
   const perms = useMultiplePermissions({
     permissions: [
       {

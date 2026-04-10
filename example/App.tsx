@@ -8,23 +8,13 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { ErrorBoundary } from "./demos/ErrorBoundary";
 
 type Demo = "hook" | "gate" | "multi" | null;
 
-// Lazy-load demo components so react-native-permissions is NOT imported
-// at bundle evaluation time. This avoids TurboModuleRegistry.getEnforcing
-// being called before the runtime is ready in the Expo dev client.
 const HookDemo = React.lazy(() => import("./demos/HookDemo"));
 const GateDemo = React.lazy(() => import("./demos/GateDemo"));
 const MultiDemo = React.lazy(() => import("./demos/MultiDemo"));
-
-function Loading() {
-  return (
-    <View style={styles.loading}>
-      <Text style={styles.loadingText}>Loading...</Text>
-    </View>
-  );
-}
 
 export default function App() {
   const [demo, setDemo] = useState<Demo>(null);
@@ -61,11 +51,13 @@ export default function App() {
               <Text style={styles.backBtnText}>{"← Back"}</Text>
             </TouchableOpacity>
 
-            <Suspense fallback={<Loading />}>
-              {demo === "hook" && <HookDemo />}
-              {demo === "gate" && <GateDemo />}
-              {demo === "multi" && <MultiDemo />}
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<Text style={styles.loading}>Loading...</Text>}>
+                {demo === "hook" && <HookDemo />}
+                {demo === "gate" && <GateDemo />}
+                {demo === "multi" && <MultiDemo />}
+              </Suspense>
+            </ErrorBoundary>
           </>
         )}
       </ScrollView>
@@ -90,6 +82,5 @@ const styles = StyleSheet.create({
   menuBtnDesc: { fontSize: 13, color: "#888" },
   backBtn: { marginBottom: 16 },
   backBtnText: { fontSize: 16, color: "#007AFF" },
-  loading: { padding: 40, alignItems: "center" },
-  loadingText: { fontSize: 15, color: "#999" },
+  loading: { fontSize: 15, color: "#999", textAlign: "center", padding: 40 },
 });
