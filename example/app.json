@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "example",
-    "slug": "example",
+    "name": "permission-handler-example",
+    "slug": "permission-handler-example",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,7 +13,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.example.permissionhandler",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to demonstrate the permission flow.",
+        "NSMicrophoneUsageDescription": "This app needs microphone access to demonstrate the permission flow.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to demonstrate the permission flow."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,10 +27,28 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.example.permissionhandler"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "react-native-permissions",
+        {
+          "iosPermissions": [
+            "Camera",
+            "Microphone",
+            "LocationWhenInUse",
+            "Notifications"
+          ]
+        }
+      ]
+    ]
   }
 }
