@@ -38,7 +38,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "./plugins/withFmtCompilerFix",
+      "./plugins/withRNPermissionsModuleProvider",
       [
         "react-native-permissions",
         {
