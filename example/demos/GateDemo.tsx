@@ -1,4 +1,4 @@
-import { Text, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { PermissionGate } from "react-native-permission-handler";
 import { CAMERA, styles } from "./shared";
 
@@ -20,6 +20,14 @@ export default function GateDemo() {
           dismissLabel: "Maybe Later",
         }}
         fallback={<Text style={styles.fallback}>Checking permission...</Text>}
+        renderDenied={({ check }) => (
+          <View>
+            <Text style={styles.fallback}>Camera permission not granted.</Text>
+            <TouchableOpacity style={styles.outlineBtn} onPress={check}>
+              <Text style={styles.outlineBtnText}>Try Again</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       >
         <View style={styles.grantedBox}>
           <Text style={styles.grantedText}>

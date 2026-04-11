@@ -27,6 +27,7 @@ export interface PermissionGateProps extends PermissionCallbacks {
     onOpenSettings: () => void;
     onDismiss: () => void;
   }) => ReactNode;
+  renderDenied?: (props: { check: () => void }) => ReactNode;
 }
 
 export function PermissionGate({
@@ -38,6 +39,7 @@ export function PermissionGate({
   fallback = null,
   renderPrePrompt,
   renderBlockedPrompt,
+  renderDenied,
   onGrant,
   onDeny,
   onBlock,
@@ -59,6 +61,13 @@ export function PermissionGate({
   }
 
   if (handler.isChecking || handler.isUnavailable) {
+    return <>{fallback}</>;
+  }
+
+  if (handler.isDenied) {
+    if (renderDenied) {
+      return <>{renderDenied({ check: handler.check })}</>;
+    }
     return <>{fallback}</>;
   }
 
