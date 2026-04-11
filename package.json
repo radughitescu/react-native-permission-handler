@@ -1,6 +1,6 @@
 {
   "name": "react-native-permission-handler",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Smart permission UX flows for React Native — pre-prompts, blocked handling, settings redirect & foreground re-check. Pluggable engine: works with react-native-permissions, Expo, or your own.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("react-native", () => ({
+  Platform: { select: (opts: Record<string, string>) => opts.ios ?? opts.default },
+}));
+
 vi.mock("react-native-permissions", () => ({
   check: vi.fn(),
   request: vi.fn(),
@@ -15,7 +19,7 @@ import {
   request,
   requestNotifications,
 } from "react-native-permissions";
-import { createRNPEngine } from "./rnp";
+import { Permissions, createRNPEngine } from "./rnp";
 
 describe("createRNPEngine", () => {
   beforeEach(() => {
@@ -92,5 +96,27 @@ describe("createRNPEngine", () => {
 
       expect(openSettings).toHaveBeenCalled();
     });
+  });
+});
+
+describe("Permissions constants", () => {
+  it("resolves to iOS strings (mocked platform)", () => {
+    expect(Permissions.CAMERA).toBe("ios.permission.CAMERA");
+    expect(Permissions.MICROPHONE).toBe("ios.permission.MICROPHONE");
+    expect(Permissions.LOCATION_WHEN_IN_USE).toBe("ios.permission.LOCATION_WHEN_IN_USE");
+    expect(Permissions.NOTIFICATIONS).toBe("notifications");
+  });
+
+  it("includes all expected cross-platform permissions", () => {
+    const keys = Object.keys(Permissions);
+    expect(keys).toContain("CAMERA");
+    expect(keys).toContain("MICROPHONE");
+    expect(keys).toContain("CONTACTS");
+    expect(keys).toContain("CALENDARS");
+    expect(keys).toContain("LOCATION_WHEN_IN_USE");
+    expect(keys).toContain("LOCATION_ALWAYS");
+    expect(keys).toContain("PHOTO_LIBRARY");
+    expect(keys).toContain("BLUETOOTH");
+    expect(keys).toContain("NOTIFICATIONS");
   });
 });

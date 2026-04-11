@@ -26,11 +26,11 @@ npm install react-native-permissions
 
 ```tsx
 import { usePermissionHandler } from "react-native-permission-handler";
-import { PERMISSIONS } from "react-native-permissions";
+import { Permissions } from "react-native-permission-handler/rnp";
 
 function QRScannerScreen() {
   const camera = usePermissionHandler({
-    permission: PERMISSIONS.IOS.CAMERA,
+    permission: Permissions.CAMERA,
     prePrompt: {
       title: "Camera Access",
       message: "We need your camera to scan QR codes.",
@@ -209,6 +209,9 @@ The main hook. Manages the full permission lifecycle.
   // Options
   autoCheck?: boolean;               // default: true — check on mount
   recheckOnForeground?: boolean;     // default: false
+  requestTimeout?: number;           // timeout for request() in ms (opt-in)
+  onTimeout?: () => void;            // called if request() times out
+  debug?: boolean | ((msg: string) => void); // log state transitions
 }
 ```
 
@@ -239,7 +242,7 @@ The main hook. Manages the full permission lifecycle.
 ```tsx
 function CameraScreen() {
   const camera = usePermissionHandler({
-    permission: PERMISSIONS.IOS.CAMERA,
+    permission: Permissions.CAMERA,
     prePrompt: {
       title: "Camera Access",
       message: "We need your camera to scan QR codes.",
@@ -302,6 +305,9 @@ Orchestrates flows for features needing multiple permissions (e.g., video call =
 
   engine?: PermissionEngine;  // optional — overrides global/fallback
   autoCheck?: boolean;        // default: true — check all on mount
+  requestTimeout?: number;    // timeout for request() in ms (opt-in)
+  onTimeout?: () => void;     // called if any request() times out
+  debug?: boolean | ((msg: string) => void); // log state transitions
   onAllGranted?: () => void;
 }
 ```
@@ -323,12 +329,12 @@ function VideoCallScreen() {
   const perms = useMultiplePermissions({
     permissions: [
       {
-        permission: PERMISSIONS.IOS.CAMERA,
+        permission: Permissions.CAMERA,
         prePrompt: { title: "Camera", message: "Needed for video." },
         blockedPrompt: { title: "Camera Blocked", message: "Enable in Settings." },
       },
       {
-        permission: PERMISSIONS.IOS.MICROPHONE,
+        permission: Permissions.MICROPHONE,
         prePrompt: { title: "Microphone", message: "Needed for audio." },
         blockedPrompt: { title: "Mic Blocked", message: "Enable in Settings." },
       },
@@ -381,7 +387,7 @@ Declarative component that renders children only when permission is granted.
 
 ```tsx
 <PermissionGate
-  permission={PERMISSIONS.IOS.CAMERA}
+  permission={Permissions.CAMERA}
   prePrompt={{ title: "Camera", message: "We need camera access." }}
   blockedPrompt={{ title: "Blocked", message: "Enable in Settings." }}
   fallback={<LoadingSpinner />}
@@ -464,6 +470,29 @@ You don't need to call this explicitly if `react-native-permissions` is installe
 
 ---
 
+### `Permissions` (cross-platform constants)
+
+The RNP entry point also exports cross-platform permission constants that resolve to the correct platform-specific string via `Platform.select`:
+
+```typescript
+import { Permissions } from "react-native-permission-handler/rnp";
+
+Permissions.CAMERA           // ios: "ios.permission.CAMERA", android: "android.permission.CAMERA"
+Permissions.MICROPHONE       // ios: "ios.permission.MICROPHONE", android: "android.permission.RECORD_AUDIO"
+Permissions.CONTACTS         // ios: "ios.permission.CONTACTS", android: "android.permission.READ_CONTACTS"
+Permissions.CALENDARS        // ios: "ios.permission.CALENDARS", android: "android.permission.READ_CALENDAR"
+Permissions.LOCATION_WHEN_IN_USE
+Permissions.LOCATION_ALWAYS
+Permissions.PHOTO_LIBRARY
+Permissions.PHOTO_LIBRARY_ADD_ONLY
+Permissions.BLUETOOTH
+Permissions.NOTIFICATIONS    // "notifications" (routed to notification-specific APIs by the engine)
+```
+
+For platform-specific permissions not in this map, pass the raw string directly (e.g., `"ios.permission.FACE_ID"`).
+
+---
+
 ### `createExpoEngine(config)`
 
 Create an engine adapter for Expo permission modules. Pass a map of permission keys to Expo modules.
@@ -514,6 +543,44 @@ The engine is responsible for:
 - Mapping its native status values to the library's `PermissionStatus`
 - Handling special cases like notifications internally
 - Opening the correct settings screen
+
+## Debugging & Reliability
+
+### Request Timeout
+
+On Android 16, `request()` can hang indefinitely when a permission is in `never_ask_again` state ([facebook/react-native#53887](https://github.com/facebook/react-native/issues/53887)). Enable `requestTimeout` to recover:
+
+```tsx
+const camera = usePermissionHandler({
+  permission: Permissions.CAMERA,
+  requestTimeout: 15000, // 15 seconds
+  onTimeout: () => console.warn("Permission request timed out"),
+  prePrompt: { title: "Camera", message: "..." },
+  blockedPrompt: { title: "Blocked", message: "..." },
+});
+```
+
+On timeout, the hook transitions to `blockedPrompt` (since the hanging bug only occurs for already-blocked permissions) and fires `onTimeout`.
+
+### Debug Logging
+
+Enable `debug` to log state transitions — useful for bug reports and support workflows:
+
+```tsx
+const camera = usePermissionHandler({
+  permission: Permissions.CAMERA,
+  debug: true,
+  // ...
+});
+// Console: [permission-handler] camera: idle → checking (CHECK)
+// Console: [permission-handler] camera: checking → prePrompt (CHECK_RESULT:denied)
+```
+
+Pass a function to route logs to your own logger:
+
+```tsx
+debug: (msg) => Sentry.addBreadcrumb({ message: msg, category: "permissions" })
+```
 
 ## Platform Notes
 

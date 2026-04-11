@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createDebugLogger } from "../core/debug-logger";
+import { PermissionTimeoutError, withTimeout } from "../core/with-timeout";
 import { resolveEngine } from "../engines/use-engine";
 import type {
   MultiPermissionEntry,
@@ -37,7 +39,16 @@ export function useMultiplePermissions(
   config: MultiplePermissionsConfig,
 ): MultiplePermissionsResult {
   const engine = resolveEngine(config.engine);
-  const { permissions, strategy, autoCheck = true, onAllGranted } = config;
+  const {
+    permissions,
+    strategy,
+    autoCheck = true,
+    requestTimeout,
+    onTimeout,
+    debug,
+    onAllGranted,
+  } = config;
+  const logger = createDebugLogger(debug, "multi");
   const [statuses, setStatuses] = useState<Record<string, PermissionFlowState>>(() => {
     const initial: Record<string, PermissionFlowState> = {};
     for (const entry of permissions) {
@@ -54,14 +65,17 @@ export function useMultiplePermissions(
     isRunning.current = true;
 
     const update = (key: string, state: PermissionFlowState) => {
-      setStatuses((prev) => ({ ...prev, [key]: state }));
+      setStatuses((prev) => {
+        logger.transition(prev[key] ?? "idle", state, key);
+        return { ...prev, [key]: state };
+      });
     };
 
     try {
       if (strategy === "sequential") {
-        await runSequential(permissions, engine, update);
+        await runSequential(permissions, engine, update, requestTimeout, onTimeout);
       } else {
-        await runParallel(permissions, engine, update);
+        await runParallel(permissions, engine, update, requestTimeout, onTimeout);
       }
 
       // Final check: are all granted?
@@ -79,7 +93,7 @@ export function useMultiplePermissions(
     } finally {
       isRunning.current = false;
     }
-  }, [permissions, strategy, engine, onAllGranted]);
+  }, [permissions, strategy, engine, requestTimeout, onTimeout, logger, onAllGranted]);
 
   // Auto-check on mount
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-only effect
@@ -112,6 +126,8 @@ async function runSequential(
   permissions: MultiPermissionEntry[],
   engine: PermissionEngine,
   updateStatus: (key: string, state: PermissionFlowState) => void,
+  requestTimeout?: number,
+  onTimeout?: () => void,
 ): Promise<void> {
   for (const entry of permissions) {
     const key = permissionKey(entry);
@@ -138,19 +154,31 @@ async function runSequential(
 
     // Denied — request it
     updateStatus(key, "requesting");
-    const requestStatus = await engine.request(entry.permission);
+    try {
+      const requestPromise = engine.request(entry.permission);
+      const requestStatus = requestTimeout
+        ? await withTimeout(requestPromise, requestTimeout, entry.permission)
+        : await requestPromise;
 
-    if (isGrantedStatus(requestStatus)) {
-      updateStatus(key, "granted");
-      entry.onGrant?.();
-    } else if (requestStatus === "blocked") {
-      updateStatus(key, "blockedPrompt");
-      entry.onBlock?.();
-      break;
-    } else {
-      updateStatus(key, "denied");
-      entry.onDeny?.();
-      break;
+      if (isGrantedStatus(requestStatus)) {
+        updateStatus(key, "granted");
+        entry.onGrant?.();
+      } else if (requestStatus === "blocked") {
+        updateStatus(key, "blockedPrompt");
+        entry.onBlock?.();
+        break;
+      } else {
+        updateStatus(key, "denied");
+        entry.onDeny?.();
+        break;
+      }
+    } catch (err) {
+      if (err instanceof PermissionTimeoutError) {
+        onTimeout?.();
+        updateStatus(key, "blockedPrompt");
+        break;
+      }
+      throw err;
     }
   }
 }
@@ -159,6 +187,8 @@ async function runParallel(
   permissions: MultiPermissionEntry[],
   engine: PermissionEngine,
   updateStatus: (key: string, state: PermissionFlowState) => void,
+  requestTimeout?: number,
+  onTimeout?: () => void,
 ): Promise<void> {
   // Check all in parallel
   const checkResults = await Promise.all(
@@ -193,17 +223,29 @@ async function runParallel(
     }
 
     updateStatus(key, "requesting");
-    const requestStatus = await engine.request(entry.permission);
+    try {
+      const requestPromise = engine.request(entry.permission);
+      const requestStatus = requestTimeout
+        ? await withTimeout(requestPromise, requestTimeout, entry.permission)
+        : await requestPromise;
 
-    if (isGrantedStatus(requestStatus)) {
-      updateStatus(key, "granted");
-      entry.onGrant?.();
-    } else if (requestStatus === "blocked") {
-      updateStatus(key, "blockedPrompt");
-      entry.onBlock?.();
-    } else {
-      updateStatus(key, "denied");
-      entry.onDeny?.();
+      if (isGrantedStatus(requestStatus)) {
+        updateStatus(key, "granted");
+        entry.onGrant?.();
+      } else if (requestStatus === "blocked") {
+        updateStatus(key, "blockedPrompt");
+        entry.onBlock?.();
+      } else {
+        updateStatus(key, "denied");
+        entry.onDeny?.();
+      }
+    } catch (err) {
+      if (err instanceof PermissionTimeoutError) {
+        onTimeout?.();
+        updateStatus(key, "blockedPrompt");
+      } else {
+        throw err;
+      }
     }
   }
 }

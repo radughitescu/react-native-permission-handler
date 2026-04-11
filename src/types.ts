@@ -82,6 +82,9 @@ export interface PermissionHandlerConfig extends PermissionCallbacks {
   blockedPrompt: BlockedPromptConfig;
   autoCheck?: boolean;
   recheckOnForeground?: boolean;
+  requestTimeout?: number;
+  onTimeout?: () => void;
+  debug?: boolean | ((msg: string) => void);
 }
 
 /**
@@ -118,6 +121,9 @@ export interface MultiplePermissionsConfig {
   strategy: "sequential" | "parallel";
   engine?: PermissionEngine;
   autoCheck?: boolean;
+  requestTimeout?: number;
+  onTimeout?: () => void;
+  debug?: boolean | ((msg: string) => void);
   onAllGranted?: () => void;
 }
 

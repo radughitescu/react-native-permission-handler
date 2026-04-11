@@ -1,5 +1,4 @@
-import { Linking, Platform, Text, TouchableOpacity, View } from "react-native";
-import { openSettings } from "react-native-permissions";
+import { Linking, Text, TouchableOpacity, View } from "react-native";
 import { useMultiplePermissions } from "react-native-permission-handler";
 import { CAMERA, MICROPHONE, styles } from "./shared";
 
@@ -75,7 +74,7 @@ export default function MultiDemo() {
           </View>
           <TouchableOpacity
             style={[styles.primaryBtn, { backgroundColor: "#FF9500" }]}
-            onPress={() => openSettings()}
+            onPress={() => Linking.openSettings()}
           >
             <Text style={styles.primaryBtnText}>Open Settings</Text>
           </TouchableOpacity>

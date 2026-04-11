@@ -1,15 +1,8 @@
-import { Platform, StyleSheet, Text, View } from "react-native";
-import { PERMISSIONS } from "react-native-permissions";
+import { StyleSheet, Text, View } from "react-native";
+import { Permissions } from "react-native-permission-handler/rnp";
 
-export const CAMERA = Platform.select({
-  ios: PERMISSIONS.IOS.CAMERA,
-  android: PERMISSIONS.ANDROID.CAMERA,
-})!;
-
-export const MICROPHONE = Platform.select({
-  ios: PERMISSIONS.IOS.MICROPHONE,
-  android: PERMISSIONS.ANDROID.RECORD_AUDIO,
-})!;
+export const CAMERA = Permissions.CAMERA;
+export const MICROPHONE = Permissions.MICROPHONE;
 
 export function Flag({ label, active }: { label: string; active: boolean }) {
   return (
