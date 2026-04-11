@@ -15,8 +15,9 @@ export function transition(
       if (event.type === "CHECK_RESULT") {
         switch (event.status) {
           case "granted":
-          case "limited":
             return "granted";
+          case "limited":
+            return "limited";
           case "denied":
             return "prePrompt";
           case "blocked":
@@ -38,8 +39,9 @@ export function transition(
       if (event.type === "REQUEST_RESULT") {
         switch (event.status) {
           case "granted":
-          case "limited":
             return "granted";
+          case "limited":
+            return "limited";
           case "denied":
             return "denied";
           case "blocked":
@@ -63,8 +65,9 @@ export function transition(
       if (event.type === "RECHECK_RESULT") {
         switch (event.status) {
           case "granted":
-          case "limited":
             return "granted";
+          case "limited":
+            return "limited";
           case "blocked":
             return "blockedPrompt";
           case "denied":
@@ -76,6 +79,7 @@ export function transition(
       return state;
 
     case "granted":
+    case "limited":
     case "denied":
     case "unavailable":
       if (event.type === "CHECK") return "checking";

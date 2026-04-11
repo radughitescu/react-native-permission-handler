@@ -9,8 +9,11 @@ import {
 } from "react-native-permissions";
 import type { PermissionEngine, PermissionStatus } from "../types";
 
-function p(ios: string, android: string): string {
-  return Platform.select({ ios, android, default: ios }) ?? ios;
+function p(ios: string, android: string | { below33: string; from33: string }): string {
+  if (Platform.OS === "ios") return ios;
+  if (typeof android === "string") return android;
+  const apiLevel = typeof Platform.Version === "number" ? Platform.Version : 33;
+  return apiLevel >= 33 ? android.from33 : android.below33;
 }
 
 /**
@@ -35,12 +38,22 @@ export const Permissions = {
     "ios.permission.LOCATION_ALWAYS",
     "android.permission.ACCESS_BACKGROUND_LOCATION",
   ),
-  PHOTO_LIBRARY: p("ios.permission.PHOTO_LIBRARY", "android.permission.READ_MEDIA_IMAGES"),
+  PHOTO_LIBRARY: p("ios.permission.PHOTO_LIBRARY", {
+    below33: "android.permission.READ_EXTERNAL_STORAGE",
+    from33: "android.permission.READ_MEDIA_IMAGES",
+  }),
   PHOTO_LIBRARY_ADD_ONLY: p(
     "ios.permission.PHOTO_LIBRARY_ADD_ONLY",
     "android.permission.WRITE_EXTERNAL_STORAGE",
   ),
-  MEDIA_LIBRARY: p("ios.permission.MEDIA_LIBRARY", "android.permission.READ_MEDIA_AUDIO"),
+  MEDIA_LIBRARY: p("ios.permission.MEDIA_LIBRARY", {
+    below33: "android.permission.READ_EXTERNAL_STORAGE",
+    from33: "android.permission.READ_MEDIA_AUDIO",
+  }),
+  VIDEO_LIBRARY: p("ios.permission.PHOTO_LIBRARY", {
+    below33: "android.permission.READ_EXTERNAL_STORAGE",
+    from33: "android.permission.READ_MEDIA_VIDEO",
+  }),
   BLUETOOTH: p("ios.permission.BLUETOOTH", "android.permission.BLUETOOTH_CONNECT"),
   SPEECH_RECOGNITION: p("ios.permission.SPEECH_RECOGNITION", "android.permission.RECORD_AUDIO"),
   MOTION: p("ios.permission.MOTION", "android.permission.ACTIVITY_RECOGNITION"),

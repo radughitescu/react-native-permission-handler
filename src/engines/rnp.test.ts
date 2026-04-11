@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("react-native", () => ({
-  Platform: { select: (opts: Record<string, string>) => opts.ios ?? opts.default },
+  Platform: {
+    OS: "ios",
+    Version: 33,
+    select: (opts: Record<string, string>) => opts.ios ?? opts.default,
+  },
 }));
 
 vi.mock("react-native-permissions", () => ({
@@ -123,6 +127,7 @@ describe("Permissions constants", () => {
       "PHOTO_LIBRARY",
       "PHOTO_LIBRARY_ADD_ONLY",
       "MEDIA_LIBRARY",
+      "VIDEO_LIBRARY",
       "BLUETOOTH",
       "SPEECH_RECOGNITION",
       "MOTION",

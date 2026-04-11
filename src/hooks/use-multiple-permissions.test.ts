@@ -70,6 +70,7 @@ describe("useMultiplePermissions", () => {
     ],
     strategy: "sequential",
     engine,
+    autoCheck: false,
     ...overrides,
   });
 
@@ -78,8 +79,10 @@ describe("useMultiplePermissions", () => {
     engine = createMockEngine();
   });
 
+  // --- Basic initialization ---
+
   it("initializes all permissions as idle when autoCheck is false", () => {
-    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ autoCheck: false })));
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
 
     expect(result.current.allGranted).toBe(false);
     expect(Object.values(result.current.statuses)).toEqual(["idle", "idle"]);
@@ -88,7 +91,7 @@ describe("useMultiplePermissions", () => {
   it("auto-checks all permissions on mount", async () => {
     vi.mocked(engine.check).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
 
-    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ autoCheck: true })));
 
     await act(async () => {});
 
@@ -97,7 +100,33 @@ describe("useMultiplePermissions", () => {
     expect(result.current.statuses.microphone).toBe("prePrompt");
   });
 
-  it("grants all permissions sequentially when already granted", async () => {
+  it("exposes per-permission handlers", () => {
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    expect(result.current.handlers.camera).toBeDefined();
+    expect(result.current.handlers.microphone).toBeDefined();
+    expect(typeof result.current.handlers.camera.request).toBe("function");
+    expect(typeof result.current.handlers.camera.dismiss).toBe("function");
+    expect(typeof result.current.handlers.camera.dismissBlocked).toBe("function");
+    expect(typeof result.current.handlers.camera.openSettings).toBe("function");
+  });
+
+  // --- Request flow ---
+
+  it("request sets activePermission to first denied permission", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("camera");
+    expect(result.current.statuses.camera).toBe("prePrompt");
+  });
+
+  it("grants all permissions when already granted", async () => {
     vi.mocked(engine.check).mockResolvedValue("granted");
     const onAllGranted = vi.fn();
 
@@ -108,36 +137,15 @@ describe("useMultiplePermissions", () => {
     });
 
     expect(result.current.allGranted).toBe(true);
+    expect(result.current.activePermission).toBeNull();
     expect(onAllGranted).toHaveBeenCalledOnce();
   });
 
-  it("requests denied permissions sequentially", async () => {
-    // Auto-check on mount returns denied for both, then requestAll flow
-    // checks again (denied), requests (granted), and final re-checks (granted)
-    vi.mocked(engine.check)
-      .mockResolvedValueOnce("denied") // auto-check: camera
-      .mockResolvedValueOnce("denied") // auto-check: mic
-      .mockResolvedValueOnce("denied") // requestAll: camera check
-      .mockResolvedValueOnce("denied") // requestAll: mic check
-      .mockResolvedValue("granted"); // final re-checks
-    vi.mocked(engine.request).mockResolvedValue("granted");
-    const onAllGranted = vi.fn();
+  // --- Sequential strategy ---
 
-    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ onAllGranted })));
-
-    await act(async () => {});
-    await act(async () => {
-      await result.current.request();
-    });
-
-    expect(result.current.allGranted).toBe(true);
-    expect(engine.request).toHaveBeenCalledTimes(2);
-    expect(onAllGranted).toHaveBeenCalledOnce();
-  });
-
-  it("stops sequential flow when permission is denied", async () => {
+  it("sequential: confirm pre-prompt triggers request and advances", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
-    vi.mocked(engine.request).mockResolvedValueOnce("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
 
     const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
 
@@ -145,15 +153,153 @@ describe("useMultiplePermissions", () => {
       await result.current.request();
     });
 
-    expect(result.current.allGranted).toBe(false);
+    expect(result.current.activePermission).toBe("camera");
+
+    // Confirm camera pre-prompt
+    await act(async () => {
+      await result.current.handlers.camera.request();
+    });
+
+    expect(result.current.statuses.camera).toBe("granted");
+    expect(result.current.activePermission).toBe("microphone");
+
+    // Confirm microphone pre-prompt
+    await act(async () => {
+      await result.current.handlers.microphone.request();
+    });
+
+    expect(result.current.statuses.microphone).toBe("granted");
+    expect(result.current.activePermission).toBeNull();
+  });
+
+  it("sequential: dismiss stops the sequence", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("camera");
+
+    act(() => {
+      result.current.handlers.camera.dismiss();
+    });
+
+    expect(result.current.statuses.camera).toBe("denied");
+    expect(result.current.activePermission).toBeNull();
+  });
+
+  it("sequential: stops on request denial", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("denied");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    await act(async () => {
+      await result.current.handlers.camera.request();
+    });
+
+    expect(result.current.statuses.camera).toBe("denied");
+    expect(result.current.activePermission).toBeNull();
+    // Microphone was never advanced to
     expect(engine.request).toHaveBeenCalledTimes(1);
   });
 
-  it("fires per-permission callbacks", async () => {
+  // --- Blocked permissions ---
+
+  it("tracks blockedPermissions", async () => {
+    vi.mocked(engine.check).mockResolvedValueOnce("blocked").mockResolvedValueOnce("denied");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.blockedPermissions).toContain("camera");
+    expect(result.current.blockedPermissions).not.toContain("microphone");
+  });
+
+  it("per-permission dismissBlocked transitions to denied and advances", async () => {
+    vi.mocked(engine.check).mockResolvedValue("blocked");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("camera");
+
+    act(() => {
+      result.current.handlers.camera.dismissBlocked();
+    });
+
+    expect(result.current.statuses.camera).toBe("denied");
+    expect(result.current.activePermission).toBe("microphone");
+  });
+
+  it("per-permission openSettings sets state to openingSettings", async () => {
+    vi.mocked(engine.check).mockResolvedValue("blocked");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    await act(async () => {
+      await result.current.handlers.camera.openSettings();
+    });
+
+    expect(result.current.statuses.camera).toBe("openingSettings");
+  });
+
+  // --- Parallel strategy ---
+
+  it("parallel: checks all then presents pre-prompts one at a time", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
-    vi.mocked(engine.request).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
+
+    const { result } = renderHook(() =>
+      useMultiplePermissions(baseConfig({ strategy: "parallel" })),
+    );
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("camera");
+    expect(result.current.statuses.camera).toBe("prePrompt");
+    expect(result.current.statuses.microphone).toBe("prePrompt");
+  });
+
+  it("parallel: skips already granted permissions", async () => {
+    vi.mocked(engine.check).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
+
+    const { result } = renderHook(() =>
+      useMultiplePermissions(baseConfig({ strategy: "parallel" })),
+    );
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.statuses.camera).toBe("granted");
+    expect(result.current.activePermission).toBe("microphone");
+  });
+
+  // --- Callbacks ---
+
+  it("fires per-permission callbacks on grant", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
     const onGrant = vi.fn();
-    const onDeny = vi.fn();
 
     const config = baseConfig({
       permissions: [
@@ -167,7 +313,6 @@ describe("useMultiplePermissions", () => {
           permission: "microphone",
           prePrompt: { title: "Mic", message: "Need mic" },
           blockedPrompt: { title: "Blocked", message: "Mic blocked" },
-          onDeny,
         },
       ],
     });
@@ -178,17 +323,46 @@ describe("useMultiplePermissions", () => {
       await result.current.request();
     });
 
+    await act(async () => {
+      await result.current.handlers.camera.request();
+    });
+
     expect(onGrant).toHaveBeenCalledOnce();
-    expect(onDeny).toHaveBeenCalledOnce();
   });
 
+  it("fires onAllGranted when all complete via interactive flow", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
+    const onAllGranted = vi.fn();
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ onAllGranted })));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    await act(async () => {
+      await result.current.handlers.camera.request();
+    });
+
+    await act(async () => {
+      await result.current.handlers.microphone.request();
+    });
+
+    expect(result.current.allGranted).toBe(true);
+    expect(onAllGranted).toHaveBeenCalledOnce();
+  });
+
+  // --- Reset ---
+
   it("reset returns all permissions to idle", async () => {
-    vi.mocked(engine.check).mockResolvedValue("granted");
+    vi.mocked(engine.check).mockResolvedValue("denied");
 
     const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
 
-    await act(async () => {});
-    expect(result.current.allGranted).toBe(true);
+    await act(async () => {
+      await result.current.request();
+    });
 
     act(() => {
       result.current.reset();
@@ -196,28 +370,7 @@ describe("useMultiplePermissions", () => {
 
     expect(Object.values(result.current.statuses)).toEqual(["idle", "idle"]);
     expect(result.current.allGranted).toBe(false);
-  });
-
-  it("handles parallel strategy — checks all, then requests denied", async () => {
-    vi.mocked(engine.check)
-      .mockResolvedValueOnce("granted") // camera already granted
-      .mockResolvedValueOnce("denied") // mic needs request
-      .mockResolvedValue("granted"); // final re-checks
-    vi.mocked(engine.request).mockResolvedValue("granted");
-    const onAllGranted = vi.fn();
-
-    const config = baseConfig({
-      strategy: "parallel",
-      onAllGranted,
-    });
-
-    const { result } = renderHook(() => useMultiplePermissions(config));
-
-    await act(async () => {
-      await result.current.request();
-    });
-
-    expect(engine.request).toHaveBeenCalledTimes(1); // only mic was requested
-    expect(onAllGranted).toHaveBeenCalledOnce();
+    expect(result.current.activePermission).toBeNull();
+    expect(result.current.blockedPermissions).toEqual([]);
   });
 });

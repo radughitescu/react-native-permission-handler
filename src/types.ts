@@ -12,6 +12,7 @@ export interface PermissionEngine {
   check(permission: string): Promise<PermissionStatus>;
   request(permission: string): Promise<PermissionStatus>;
   openSettings(): Promise<void>;
+  requestFullAccess?(permission: string): Promise<PermissionStatus>;
 }
 
 /**
@@ -23,6 +24,7 @@ export type PermissionFlowState =
   | "prePrompt"
   | "requesting"
   | "granted"
+  | "limited"
   | "denied"
   | "blocked"
   | "blockedPrompt"
@@ -97,6 +99,7 @@ export interface PermissionHandlerResult {
   state: PermissionFlowState;
   nativeStatus: PermissionStatus | null;
   isGranted: boolean;
+  isLimited: boolean;
   isDenied: boolean;
   isBlocked: boolean;
   isChecking: boolean;
@@ -133,11 +136,25 @@ export interface MultiplePermissionsConfig {
 }
 
 /**
+ * Per-permission action handlers within useMultiplePermissions.
+ */
+export interface MultiPermissionHandler {
+  state: PermissionFlowState;
+  request: () => void;
+  dismiss: () => void;
+  dismissBlocked: () => void;
+  openSettings: () => void;
+}
+
+/**
  * Return type of useMultiplePermissions.
  */
 export interface MultiplePermissionsResult {
   statuses: Record<string, PermissionFlowState>;
   allGranted: boolean;
+  handlers: Record<string, MultiPermissionHandler>;
+  activePermission: string | null;
+  blockedPermissions: string[];
   request: () => void;
   reset: () => void;
 }

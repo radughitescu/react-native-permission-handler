@@ -1,6 +1,7 @@
 export type {
   BlockedPromptConfig,
   MultiPermissionEntry,
+  MultiPermissionHandler,
   MultiplePermissionsConfig,
   MultiplePermissionsResult,
   PermissionCallbacks,
@@ -23,3 +24,5 @@ export { DefaultPrePrompt } from "./components/default-pre-prompt";
 export type { DefaultPrePromptProps } from "./components/default-pre-prompt";
 export { DefaultBlockedPrompt } from "./components/default-blocked-prompt";
 export type { DefaultBlockedPromptProps } from "./components/default-blocked-prompt";
+export { LimitedUpgradePrompt } from "./components/limited-upgrade-prompt";
+export type { LimitedUpgradePromptProps } from "./components/limited-upgrade-prompt";

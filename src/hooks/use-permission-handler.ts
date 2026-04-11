@@ -48,7 +48,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
       setFlowState((s) => {
         const next = transition(s, { type: "CHECK_RESULT", status });
         logger.transition(s, next, `CHECK_RESULT:${status}`);
-        if (next === "granted" && s !== "granted") onGrant?.();
+        if ((next === "granted" || next === "limited") && s !== "granted" && s !== "limited")
+          onGrant?.();
         return next;
       });
     } catch {
@@ -77,7 +78,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
       setFlowState((s) => {
         const next = transition(s, { type: "REQUEST_RESULT", status });
         logger.transition(s, next, `REQUEST_RESULT:${status}`);
-        if (next === "granted") onGrant?.();
+        if (next === "granted" || next === "limited") onGrant?.();
         if (next === "denied") onDeny?.();
         if (next === "blockedPrompt") onBlock?.();
         return next;
@@ -152,8 +153,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
       setFlowState((s) => {
         const next = transition(s, { type: "RECHECK_RESULT", status });
         logger.transition(s, next, `RECHECK_RESULT:${status}`);
-        if (next === "granted") onGrant?.();
-        onSettingsReturn?.(next === "granted");
+        if (next === "granted" || next === "limited") onGrant?.();
+        onSettingsReturn?.(next === "granted" || next === "limited");
         return next;
       });
     } catch {
@@ -189,7 +190,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   return {
     state: flowState,
     nativeStatus,
-    isGranted: flowState === "granted",
+    isGranted: flowState === "granted" || flowState === "limited",
+    isLimited: flowState === "limited",
     isDenied: flowState === "denied",
     isBlocked:
       flowState === "blocked" || flowState === "blockedPrompt" || flowState === "openingSettings",

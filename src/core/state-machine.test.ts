@@ -20,8 +20,8 @@ describe("transition — checking", () => {
     expect(transition("checking", { type: "CHECK_RESULT", status: "granted" })).toBe("granted");
   });
 
-  it("transitions to granted on limited status", () => {
-    expect(transition("checking", { type: "CHECK_RESULT", status: "limited" })).toBe("granted");
+  it("transitions to limited on limited status", () => {
+    expect(transition("checking", { type: "CHECK_RESULT", status: "limited" })).toBe("limited");
   });
 
   it("transitions to prePrompt on denied status", () => {
@@ -66,8 +66,8 @@ describe("transition — requesting", () => {
     expect(transition("requesting", { type: "REQUEST_RESULT", status: "granted" })).toBe("granted");
   });
 
-  it("transitions to granted on limited status", () => {
-    expect(transition("requesting", { type: "REQUEST_RESULT", status: "limited" })).toBe("granted");
+  it("transitions to limited on limited status", () => {
+    expect(transition("requesting", { type: "REQUEST_RESULT", status: "limited" })).toBe("limited");
   });
 
   it("transitions to denied on denied status", () => {
@@ -124,13 +124,13 @@ describe("transition — recheckingAfterSettings", () => {
     ).toBe("granted");
   });
 
-  it("transitions to granted on limited status", () => {
+  it("transitions to limited on limited status", () => {
     expect(
       transition("recheckingAfterSettings", {
         type: "RECHECK_RESULT",
         status: "limited",
       }),
-    ).toBe("granted");
+    ).toBe("limited");
   });
 
   it("transitions to blockedPrompt on blocked status", () => {
@@ -163,6 +163,10 @@ describe("transition — terminal states allow re-checking", () => {
     expect(transition("granted", { type: "CHECK" })).toBe("checking");
   });
 
+  it("limited → checking on CHECK", () => {
+    expect(transition("limited", { type: "CHECK" })).toBe("checking");
+  });
+
   it("denied → checking on CHECK", () => {
     expect(transition("denied", { type: "CHECK" })).toBe("checking");
   });
@@ -173,6 +177,10 @@ describe("transition — terminal states allow re-checking", () => {
 
   it("granted ignores unrelated events", () => {
     expect(transition("granted", { type: "OPEN_SETTINGS" })).toBe("granted");
+  });
+
+  it("limited ignores unrelated events", () => {
+    expect(transition("limited", { type: "OPEN_SETTINGS" })).toBe("limited");
   });
 
   it("denied ignores unrelated events", () => {
@@ -199,6 +207,7 @@ describe("transition — RESET from any state", () => {
     "prePrompt",
     "requesting",
     "granted",
+    "limited",
     "denied",
     "blocked",
     "blockedPrompt",
@@ -221,6 +230,7 @@ describe("transition — robustness: no state throws on any event", () => {
     "prePrompt",
     "requesting",
     "granted",
+    "limited",
     "denied",
     "blocked",
     "blockedPrompt",
