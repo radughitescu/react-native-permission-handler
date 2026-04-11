@@ -53,33 +53,29 @@ function QRScannerScreen() {
 
 ### With Expo modules
 
-```bash
-npm install expo-camera expo-notifications  # whichever modules you need
-```
-
 ```tsx
 import { setDefaultEngine } from "react-native-permission-handler";
 import { createExpoEngine } from "react-native-permission-handler/expo";
-import * as Camera from "expo-camera";
-import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 
-// Set once at app startup
+// Zero-config — auto-discovers all installed Expo permission modules
+setDefaultEngine(createExpoEngine());
+```
+
+That's it. The engine automatically finds installed modules (`expo-camera`, `expo-location`, `expo-notifications`, etc.) and maps them to permission keys like `"camera"`, `"locationForeground"`, `"notifications"`.
+
+To override or add custom permissions:
+
+```tsx
 setDefaultEngine(
   createExpoEngine({
     permissions: {
-      // Modules with standard getPermissionsAsync/requestPermissionsAsync work directly
-      notifications: Notifications,
-
-      // Modules with non-standard names use { get, request }
+      // Override a discovered default
       camera: {
         get: () => Camera.getCameraPermissionsAsync(),
         request: () => Camera.requestCameraPermissionsAsync(),
       },
-      locationForeground: {
-        get: () => Location.getForegroundPermissionsAsync(),
-        request: () => Location.requestForegroundPermissionsAsync(),
-      },
+      // Add a custom permission
+      myCustom: myModule,
     },
   })
 );
@@ -522,11 +518,15 @@ Permissions.ANDROID.BLUETOOTH_ADVERTISE
 
 ---
 
-### `createExpoEngine(config)`
+### `createExpoEngine(config?)`
 
-Create an engine adapter for Expo permission modules. Each permission entry can be either:
+Create an engine adapter for Expo permission modules. With no arguments, auto-discovers all installed Expo modules. User config merges on top of discovered defaults.
+
+Each permission entry can be either:
 - A module with standard `getPermissionsAsync`/`requestPermissionsAsync` methods
 - An explicit `{ get, request }` pair for modules with non-standard method names
+
+**Auto-discovered permission keys:** `camera`, `microphone`, `locationForeground`, `locationBackground`, `notifications`, `contacts`, `calendar`, `reminders`, `mediaLibrary`, `imagePickerCamera`, `imagePickerMediaLibrary`, `tracking`, `brightness`, `audioRecording`, `audio`, `screenCapture`, `cellular`, `pedometer`, `accelerometer`
 
 ```typescript
 import { createExpoEngine } from "react-native-permission-handler/expo";

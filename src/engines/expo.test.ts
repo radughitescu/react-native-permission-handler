@@ -120,6 +120,33 @@ describe("createExpoEngine", () => {
     });
   });
 
+  describe("zero-config (auto-discovery)", () => {
+    it("creates engine with no arguments", () => {
+      // In test environment no expo modules are installed, so all return unavailable
+      const engine = createExpoEngine();
+      expect(engine.check).toBeDefined();
+      expect(engine.request).toBeDefined();
+      expect(engine.openSettings).toBeDefined();
+    });
+
+    it("returns unavailable for undiscovered permissions", async () => {
+      const engine = createExpoEngine();
+      expect(await engine.check("camera")).toBe("unavailable");
+    });
+
+    it("user config overrides discovered defaults", async () => {
+      const customModule = createMockModule({
+        getPermissionsAsync: vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true }),
+      });
+
+      const engine = createExpoEngine({
+        permissions: { camera: customModule },
+      });
+
+      expect(await engine.check("camera")).toBe("granted");
+    });
+  });
+
   describe("non-standard module names (ExpoPermissionFunctions)", () => {
     it("works with explicit get/request functions", async () => {
       const getFn = vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true });
