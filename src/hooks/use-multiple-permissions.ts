@@ -57,12 +57,14 @@ export function useMultiplePermissions(
     return initial;
   });
   const isRunning = useRef(false);
+  const generation = useRef(0);
 
   const allGranted = permissions.every((entry) => statuses[permissionKey(entry)] === "granted");
 
   const requestAll = useCallback(async () => {
     if (isRunning.current) return;
     isRunning.current = true;
+    const gen = generation.current;
 
     const update = (key: string, state: PermissionFlowState) => {
       setStatuses((prev) => {
@@ -77,6 +79,8 @@ export function useMultiplePermissions(
       } else {
         await runParallel(permissions, engine, update, requestTimeout, onTimeout);
       }
+
+      if (generation.current !== gen) return;
 
       // Final check: are all granted?
       let allDone = true;
@@ -115,10 +119,22 @@ export function useMultiplePermissions(
     };
   }, []);
 
+  const resetAll = useCallback(() => {
+    generation.current += 1;
+    isRunning.current = false;
+    const initial: Record<string, PermissionFlowState> = {};
+    for (const entry of permissions) {
+      initial[permissionKey(entry)] = "idle";
+    }
+    setStatuses(initial);
+    logger.info("reset all to idle");
+  }, [permissions, logger]);
+
   return {
     statuses,
     allGranted,
     request: requestAll,
+    reset: resetAll,
   };
 }
 

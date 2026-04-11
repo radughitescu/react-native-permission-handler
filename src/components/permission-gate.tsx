@@ -25,6 +25,7 @@ export interface PermissionGateProps extends PermissionCallbacks {
   renderBlockedPrompt?: (props: {
     config: BlockedPromptConfig;
     onOpenSettings: () => void;
+    onDismiss: () => void;
   }) => ReactNode;
 }
 
@@ -93,6 +94,7 @@ export function PermissionGate({
           {renderBlockedPrompt({
             config: blockedPrompt,
             onOpenSettings: handler.openSettings,
+            onDismiss: handler.dismissBlocked,
           })}
         </>
       );
@@ -103,7 +105,9 @@ export function PermissionGate({
         title={blockedPrompt.title}
         message={blockedPrompt.message}
         settingsLabel={blockedPrompt.settingsLabel}
+        dismissLabel={blockedPrompt.dismissLabel}
         onOpenSettings={handler.openSettings}
+        onDismiss={handler.dismissBlocked}
       />
     );
   }

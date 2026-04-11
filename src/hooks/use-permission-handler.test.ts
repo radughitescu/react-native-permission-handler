@@ -201,6 +201,39 @@ describe("usePermissionHandler", () => {
     expect(engine.request).toHaveBeenCalledTimes(1);
   });
 
+  it("dismissBlocked fires onDeny and transitions to denied", async () => {
+    vi.mocked(engine.check).mockResolvedValue("blocked");
+    const onDeny = vi.fn();
+
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ onDeny })));
+
+    await act(async () => {});
+    expect(result.current.state).toBe("blockedPrompt");
+
+    act(() => {
+      result.current.dismissBlocked();
+    });
+
+    expect(result.current.isDenied).toBe(true);
+    expect(onDeny).toHaveBeenCalled();
+  });
+
+  it("reset returns to idle and clears nativeStatus", async () => {
+    vi.mocked(engine.check).mockResolvedValue("granted");
+
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+
+    await act(async () => {});
+    expect(result.current.isGranted).toBe(true);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.state).toBe("idle");
+    expect(result.current.nativeStatus).toBeNull();
+  });
+
   it("dismiss fires onDeny and transitions to denied", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
     const onDeny = vi.fn();

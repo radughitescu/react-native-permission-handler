@@ -182,6 +182,22 @@ describe("useMultiplePermissions", () => {
     expect(onDeny).toHaveBeenCalledOnce();
   });
 
+  it("reset returns all permissions to idle", async () => {
+    vi.mocked(engine.check).mockResolvedValue("granted");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {});
+    expect(result.current.allGranted).toBe(true);
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(Object.values(result.current.statuses)).toEqual(["idle", "idle"]);
+    expect(result.current.allGranted).toBe(false);
+  });
+
   it("handles parallel strategy — checks all, then requests denied", async () => {
     vi.mocked(engine.check)
       .mockResolvedValueOnce("granted") // camera already granted

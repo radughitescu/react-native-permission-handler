@@ -5,6 +5,7 @@ import type { BlockedPromptConfig } from "../types";
 export interface DefaultBlockedPromptProps extends BlockedPromptConfig {
   visible: boolean;
   onOpenSettings: () => void;
+  onDismiss?: () => void;
 }
 
 export function DefaultBlockedPrompt({
@@ -12,7 +13,9 @@ export function DefaultBlockedPrompt({
   title,
   message,
   settingsLabel = "Open Settings",
+  dismissLabel = "Not Now",
   onOpenSettings,
+  onDismiss,
 }: DefaultBlockedPromptProps) {
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -27,6 +30,11 @@ export function DefaultBlockedPrompt({
           >
             <Text style={styles.settingsText}>{settingsLabel}</Text>
           </TouchableOpacity>
+          {onDismiss && (
+            <TouchableOpacity onPress={onDismiss} accessibilityRole="button">
+              <Text style={styles.dismissText}>{dismissLabel}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
@@ -72,5 +80,10 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  dismissText: {
+    color: "#007AFF",
+    fontSize: 15,
+    marginTop: 12,
   },
 });

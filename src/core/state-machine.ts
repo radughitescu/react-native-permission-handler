@@ -4,6 +4,8 @@ export function transition(
   state: PermissionFlowState,
   event: PermissionFlowEvent,
 ): PermissionFlowState {
+  if (event.type === "RESET") return "idle";
+
   switch (state) {
     case "idle":
       if (event.type === "CHECK") return "checking";
@@ -50,6 +52,7 @@ export function transition(
 
     case "blockedPrompt":
       if (event.type === "OPEN_SETTINGS") return "openingSettings";
+      if (event.type === "BLOCKED_PROMPT_DISMISS") return "denied";
       return state;
 
     case "openingSettings":

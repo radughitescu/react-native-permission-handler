@@ -17,6 +17,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const [nativeStatus, setNativeStatus] = useState<PermissionStatus | null>(null);
   const isRequesting = useRef(false);
   const waitingForSettings = useRef(false);
+  const generation = useRef(0);
   const appStateRef = useRef(AppState.currentState);
 
   const {
@@ -34,6 +35,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const logger = createDebugLogger(debug, permission);
 
   const checkPermission = useCallback(async () => {
+    const gen = generation.current;
     setFlowState((s) => {
       const next = transition(s, { type: "CHECK" });
       logger.transition(s, next, "CHECK");
@@ -41,6 +43,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     });
     try {
       const status = await engine.check(permission);
+      if (generation.current !== gen) return;
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "CHECK_RESULT", status });
@@ -49,6 +52,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
         return next;
       });
     } catch {
+      if (generation.current !== gen) return;
       setFlowState("idle");
     }
   }, [engine, permission, logger, onGrant]);
@@ -56,6 +60,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const requestPermission = useCallback(async () => {
     if (isRequesting.current) return;
     isRequesting.current = true;
+    const gen = generation.current;
 
     setFlowState((s) => {
       const next = transition(s, { type: "PRE_PROMPT_CONFIRM" });
@@ -67,6 +72,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
       const status = requestTimeout
         ? await withTimeout(requestPromise, requestTimeout, permission)
         : await requestPromise;
+      if (generation.current !== gen) return;
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "REQUEST_RESULT", status });
@@ -77,6 +83,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
         return next;
       });
     } catch (err) {
+      if (generation.current !== gen) return;
       if (err instanceof PermissionTimeoutError) {
         logger.info(`request timed out after ${requestTimeout}ms`);
         onTimeout?.();
@@ -113,7 +120,26 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     }
   }, [engine, logger]);
 
+  const dismissBlocked = useCallback(() => {
+    setFlowState((s) => {
+      const next = transition(s, { type: "BLOCKED_PROMPT_DISMISS" });
+      logger.transition(s, next, "BLOCKED_PROMPT_DISMISS");
+      return next;
+    });
+    onDeny?.();
+  }, [logger, onDeny]);
+
+  const reset = useCallback(() => {
+    generation.current += 1;
+    setFlowState("idle");
+    setNativeStatus(null);
+    waitingForSettings.current = false;
+    isRequesting.current = false;
+    logger.info("reset to idle");
+  }, [logger]);
+
   const recheckAfterSettings = useCallback(async () => {
+    const gen = generation.current;
     setFlowState((s) => {
       const next = transition(s, { type: "SETTINGS_RETURN" });
       logger.transition(s, next, "SETTINGS_RETURN");
@@ -121,6 +147,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     });
     try {
       const status = await engine.check(permission);
+      if (generation.current !== gen) return;
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "RECHECK_RESULT", status });
@@ -130,6 +157,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
         return next;
       });
     } catch {
+      if (generation.current !== gen) return;
       setFlowState("blockedPrompt");
     }
   }, [engine, permission, logger, onGrant, onSettingsReturn]);
@@ -170,6 +198,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     request: requestPermission,
     check: checkPermission,
     dismiss,
+    dismissBlocked,
     openSettings: goToSettings,
+    reset,
   };
 }

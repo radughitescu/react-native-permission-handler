@@ -91,6 +91,10 @@ describe("transition — blockedPrompt", () => {
     expect(transition("blockedPrompt", { type: "OPEN_SETTINGS" })).toBe("openingSettings");
   });
 
+  it("transitions to denied on BLOCKED_PROMPT_DISMISS", () => {
+    expect(transition("blockedPrompt", { type: "BLOCKED_PROMPT_DISMISS" })).toBe("denied");
+  });
+
   it("ignores unrelated events", () => {
     expect(transition("blockedPrompt", { type: "CHECK" })).toBe("blockedPrompt");
     expect(transition("blockedPrompt", { type: "PRE_PROMPT_CONFIRM" })).toBe("blockedPrompt");
@@ -188,6 +192,28 @@ describe("transition — blocked state", () => {
   });
 });
 
+describe("transition — RESET from any state", () => {
+  const allStates: PermissionFlowState[] = [
+    "idle",
+    "checking",
+    "prePrompt",
+    "requesting",
+    "granted",
+    "denied",
+    "blocked",
+    "blockedPrompt",
+    "openingSettings",
+    "recheckingAfterSettings",
+    "unavailable",
+  ];
+
+  for (const state of allStates) {
+    it(`${state} → idle on RESET`, () => {
+      expect(transition(state, { type: "RESET" })).toBe("idle");
+    });
+  }
+});
+
 describe("transition — robustness: no state throws on any event", () => {
   const allStates: PermissionFlowState[] = [
     "idle",
@@ -212,6 +238,8 @@ describe("transition — robustness: no state throws on any event", () => {
     { type: "CHECK_RESULT", status: "limited" },
     { type: "PRE_PROMPT_CONFIRM" },
     { type: "PRE_PROMPT_DISMISS" },
+    { type: "BLOCKED_PROMPT_DISMISS" },
+    { type: "RESET" },
     { type: "REQUEST_RESULT", status: "granted" },
     { type: "REQUEST_RESULT", status: "denied" },
     { type: "REQUEST_RESULT", status: "blocked" },

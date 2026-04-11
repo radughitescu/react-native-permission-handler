@@ -39,6 +39,8 @@ export type PermissionFlowEvent =
   | { type: "PRE_PROMPT_CONFIRM" }
   | { type: "PRE_PROMPT_DISMISS" }
   | { type: "REQUEST_RESULT"; status: PermissionStatus }
+  | { type: "BLOCKED_PROMPT_DISMISS" }
+  | { type: "RESET" }
   | { type: "OPEN_SETTINGS" }
   | { type: "SETTINGS_RETURN" }
   | { type: "RECHECK_RESULT"; status: PermissionStatus };
@@ -60,6 +62,7 @@ export interface BlockedPromptConfig {
   title: string;
   message: string;
   settingsLabel?: string;
+  dismissLabel?: string;
 }
 
 /**
@@ -101,7 +104,9 @@ export interface PermissionHandlerResult {
   request: () => void;
   check: () => void;
   dismiss: () => void;
+  dismissBlocked: () => void;
   openSettings: () => void;
+  reset: () => void;
 }
 
 /**
@@ -134,4 +139,5 @@ export interface MultiplePermissionsResult {
   statuses: Record<string, PermissionFlowState>;
   allGranted: boolean;
   request: () => void;
+  reset: () => void;
 }

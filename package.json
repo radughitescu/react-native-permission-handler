@@ -1,6 +1,6 @@
 {
   "name": "react-native-permission-handler",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Smart permission UX flows for React Native — pre-prompts, blocked handling, settings redirect & foreground re-check. Pluggable engine: works with react-native-permissions, Expo, or your own.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -34,6 +34,26 @@
       "require": {
         "types": "./dist/engines/expo.d.ts",
         "default": "./dist/engines/expo.js"
+      }
+    },
+    "./noop": {
+      "import": {
+        "types": "./dist/engines/noop.d.mts",
+        "default": "./dist/engines/noop.mjs"
+      },
+      "require": {
+        "types": "./dist/engines/noop.d.ts",
+        "default": "./dist/engines/noop.js"
+      }
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/engines/testing.d.mts",
+        "default": "./dist/engines/testing.mjs"
+      },
+      "require": {
+        "types": "./dist/engines/testing.d.ts",
+        "default": "./dist/engines/testing.js"
       }
     }
   },
