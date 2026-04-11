@@ -61,14 +61,25 @@ npm install expo-camera expo-notifications  # whichever modules you need
 import { setDefaultEngine } from "react-native-permission-handler";
 import { createExpoEngine } from "react-native-permission-handler/expo";
 import * as Camera from "expo-camera";
+import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 
 // Set once at app startup
 setDefaultEngine(
   createExpoEngine({
     permissions: {
-      camera: Camera,
+      // Modules with standard getPermissionsAsync/requestPermissionsAsync work directly
       notifications: Notifications,
+
+      // Modules with non-standard names use { get, request }
+      camera: {
+        get: () => Camera.getCameraPermissionsAsync(),
+        request: () => Camera.requestCameraPermissionsAsync(),
+      },
+      locationForeground: {
+        get: () => Location.getForegroundPermissionsAsync(),
+        request: () => Location.requestForegroundPermissionsAsync(),
+      },
     },
   })
 );
@@ -470,48 +481,85 @@ You don't need to call this explicitly if `react-native-permissions` is installe
 
 ---
 
-### `Permissions` (cross-platform constants)
+### `Permissions`
 
-The RNP entry point also exports cross-platform permission constants that resolve to the correct platform-specific string via `Platform.select`:
+The RNP entry point exports permission constants. Cross-platform permissions resolve to the correct platform string at runtime via `Platform.select`:
 
 ```typescript
 import { Permissions } from "react-native-permission-handler/rnp";
 
-Permissions.CAMERA           // ios: "ios.permission.CAMERA", android: "android.permission.CAMERA"
-Permissions.MICROPHONE       // ios: "ios.permission.MICROPHONE", android: "android.permission.RECORD_AUDIO"
-Permissions.CONTACTS         // ios: "ios.permission.CONTACTS", android: "android.permission.READ_CONTACTS"
-Permissions.CALENDARS        // ios: "ios.permission.CALENDARS", android: "android.permission.READ_CALENDAR"
+// Cross-platform (resolve per platform)
+Permissions.CAMERA              // ios: "ios.permission.CAMERA", android: "android.permission.CAMERA"
+Permissions.MICROPHONE          // ios: "ios.permission.MICROPHONE", android: "android.permission.RECORD_AUDIO"
+Permissions.CONTACTS
+Permissions.CALENDARS
+Permissions.CALENDARS_WRITE_ONLY
 Permissions.LOCATION_WHEN_IN_USE
 Permissions.LOCATION_ALWAYS
 Permissions.PHOTO_LIBRARY
 Permissions.PHOTO_LIBRARY_ADD_ONLY
+Permissions.MEDIA_LIBRARY
 Permissions.BLUETOOTH
-Permissions.NOTIFICATIONS    // "notifications" (routed to notification-specific APIs by the engine)
-```
+Permissions.SPEECH_RECOGNITION
+Permissions.MOTION
+Permissions.NOTIFICATIONS       // "notifications" (routed to notification-specific APIs)
 
-For platform-specific permissions not in this map, pass the raw string directly (e.g., `"ios.permission.FACE_ID"`).
+// iOS-only
+Permissions.IOS.APP_TRACKING_TRANSPARENCY
+Permissions.IOS.FACE_ID
+Permissions.IOS.REMINDERS
+Permissions.IOS.SIRI
+Permissions.IOS.STOREKIT
+
+// Android-only
+Permissions.ANDROID.BODY_SENSORS
+Permissions.ANDROID.CALL_PHONE
+Permissions.ANDROID.READ_SMS
+Permissions.ANDROID.BLUETOOTH_SCAN
+Permissions.ANDROID.BLUETOOTH_ADVERTISE
+// ... and 26 more (full list in source)
+```
 
 ---
 
 ### `createExpoEngine(config)`
 
-Create an engine adapter for Expo permission modules. Pass a map of permission keys to Expo modules.
+Create an engine adapter for Expo permission modules. Each permission entry can be either:
+- A module with standard `getPermissionsAsync`/`requestPermissionsAsync` methods
+- An explicit `{ get, request }` pair for modules with non-standard method names
 
 ```typescript
 import { createExpoEngine } from "react-native-permission-handler/expo";
 import * as Camera from "expo-camera";
 import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
+import * as Contacts from "expo-contacts";
 
 const engine = createExpoEngine({
   permissions: {
-    camera: Camera,
-    location: Location,
+    // Standard modules — pass directly
     notifications: Notifications,
+    contacts: Contacts,
+
+    // Non-standard method names — use { get, request }
+    camera: {
+      get: () => Camera.getCameraPermissionsAsync(),
+      request: () => Camera.requestCameraPermissionsAsync(),
+    },
+    microphone: {
+      get: () => Camera.getMicrophonePermissionsAsync(),
+      request: () => Camera.requestMicrophonePermissionsAsync(),
+    },
+    locationForeground: {
+      get: () => Location.getForegroundPermissionsAsync(),
+      request: () => Location.requestForegroundPermissionsAsync(),
+    },
+    locationBackground: {
+      get: () => Location.getBackgroundPermissionsAsync(),
+      request: () => Location.requestBackgroundPermissionsAsync(),
+    },
   },
 });
-
-setDefaultEngine(engine);
 ```
 
 The adapter maps Expo's `{ status, canAskAgain }` response to the library's `PermissionStatus`:

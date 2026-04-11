@@ -119,4 +119,80 @@ describe("createExpoEngine", () => {
       expect(Linking.openSettings).toHaveBeenCalled();
     });
   });
+
+  describe("non-standard module names (ExpoPermissionFunctions)", () => {
+    it("works with explicit get/request functions", async () => {
+      const getFn = vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true });
+      const requestFn = vi.fn().mockResolvedValue({ status: "denied", canAskAgain: false });
+
+      const engine = createExpoEngine({
+        permissions: {
+          camera: { get: getFn, request: requestFn },
+        },
+      });
+
+      expect(await engine.check("camera")).toBe("granted");
+      expect(getFn).toHaveBeenCalled();
+
+      expect(await engine.request("camera")).toBe("blocked");
+      expect(requestFn).toHaveBeenCalled();
+    });
+
+    it("simulates expo-camera with getCameraPermissionsAsync", async () => {
+      // This is how users would wire up expo-camera
+      const mockCamera = {
+        getCameraPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "denied", canAskAgain: true }),
+        requestCameraPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "granted", canAskAgain: true }),
+      };
+
+      const engine = createExpoEngine({
+        permissions: {
+          camera: {
+            get: () => mockCamera.getCameraPermissionsAsync(),
+            request: () => mockCamera.requestCameraPermissionsAsync(),
+          },
+        },
+      });
+
+      expect(await engine.check("camera")).toBe("denied");
+      expect(await engine.request("camera")).toBe("granted");
+    });
+
+    it("simulates expo-location foreground + background as separate entries", async () => {
+      const mockLocation = {
+        getForegroundPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "granted", canAskAgain: true }),
+        requestForegroundPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "granted", canAskAgain: true }),
+        getBackgroundPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "denied", canAskAgain: false }),
+        requestBackgroundPermissionsAsync: vi
+          .fn()
+          .mockResolvedValue({ status: "denied", canAskAgain: false }),
+      };
+
+      const engine = createExpoEngine({
+        permissions: {
+          locationForeground: {
+            get: () => mockLocation.getForegroundPermissionsAsync(),
+            request: () => mockLocation.requestForegroundPermissionsAsync(),
+          },
+          locationBackground: {
+            get: () => mockLocation.getBackgroundPermissionsAsync(),
+            request: () => mockLocation.requestBackgroundPermissionsAsync(),
+          },
+        },
+      });
+
+      expect(await engine.check("locationForeground")).toBe("granted");
+      expect(await engine.check("locationBackground")).toBe("blocked");
+    });
+  });
 });
