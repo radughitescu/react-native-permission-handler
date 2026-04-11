@@ -1,4 +1,18 @@
-import type { Permission, PermissionStatus } from "react-native-permissions";
+/**
+ * Permission status values owned by this library.
+ * Engines must map their native statuses to these values.
+ */
+export type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
+
+/**
+ * The pluggable permission engine interface.
+ * Implement this to use a custom permissions backend.
+ */
+export interface PermissionEngine {
+  check(permission: string): Promise<PermissionStatus>;
+  request(permission: string): Promise<PermissionStatus>;
+  openSettings(): Promise<void>;
+}
 
 /**
  * States of the permission flow state machine.
@@ -62,7 +76,8 @@ export interface PermissionCallbacks {
  * Configuration for usePermissionHandler.
  */
 export interface PermissionHandlerConfig extends PermissionCallbacks {
-  permission: Permission | "notifications";
+  permission: string;
+  engine?: PermissionEngine;
   prePrompt: PrePromptConfig;
   blockedPrompt: BlockedPromptConfig;
   autoCheck?: boolean;
@@ -90,7 +105,7 @@ export interface PermissionHandlerResult {
  * Configuration for a single permission within useMultiplePermissions.
  */
 export interface MultiPermissionEntry extends PermissionCallbacks {
-  permission: Permission | "notifications";
+  permission: string;
   prePrompt: PrePromptConfig;
   blockedPrompt: BlockedPromptConfig;
 }
@@ -101,6 +116,8 @@ export interface MultiPermissionEntry extends PermissionCallbacks {
 export interface MultiplePermissionsConfig {
   permissions: MultiPermissionEntry[];
   strategy: "sequential" | "parallel";
+  engine?: PermissionEngine;
+  autoCheck?: boolean;
   onAllGranted?: () => void;
 }
 

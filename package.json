@@ -1,7 +1,7 @@
 {
   "name": "react-native-permission-handler",
-  "version": "0.1.0",
-  "description": "Smart permission UX flows for React Native — pre-prompts, blocked handling, settings redirect & foreground re-check. Built on react-native-permissions.",
+  "version": "0.2.0",
+  "description": "Smart permission UX flows for React Native — pre-prompts, blocked handling, settings redirect & foreground re-check. Pluggable engine: works with react-native-permissions, Expo, or your own.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -14,6 +14,26 @@
       "require": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      }
+    },
+    "./rnp": {
+      "import": {
+        "types": "./dist/engines/rnp.d.mts",
+        "default": "./dist/engines/rnp.mjs"
+      },
+      "require": {
+        "types": "./dist/engines/rnp.d.ts",
+        "default": "./dist/engines/rnp.js"
+      }
+    },
+    "./expo": {
+      "import": {
+        "types": "./dist/engines/expo.d.mts",
+        "default": "./dist/engines/expo.mjs"
+      },
+      "require": {
+        "types": "./dist/engines/expo.d.ts",
+        "default": "./dist/engines/expo.js"
       }
     }
   },
@@ -59,6 +79,11 @@
     "react": ">=18.0.0",
     "react-native": ">=0.76.0",
     "react-native-permissions": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react-native-permissions": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.0",

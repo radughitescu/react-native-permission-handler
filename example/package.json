@@ -13,8 +13,9 @@
     "expo-status-bar": "~55.0.5",
     "react": "19.2.0",
     "react-native": "0.83.4",
+    "react-native-permission-handler": "^0.2.0",
     "react-native-permissions": "^5.5.1",
-    "react-native-permission-handler": "file:react-native-permission-handler-0.0.0.tgz"
+    "react-native-safe-area-context": "^5.7.0"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",

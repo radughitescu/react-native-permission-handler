@@ -2,23 +2,27 @@
 
 Smart permission UX flows for React Native. Pre-prompts, blocked handling, settings redirect, and foreground re-check — in one hook.
 
-Built on [`react-native-permissions`](https://github.com/zoontek/react-native-permissions).
+Works with [`react-native-permissions`](https://github.com/zoontek/react-native-permissions), [Expo modules](https://docs.expo.dev/guides/permissions/), or any custom permissions backend via the pluggable engine architecture.
 
 ## Why
 
-Every React Native app that uses device features needs runtime permissions. The low-level check/request API is solved by `react-native-permissions`. But the **UX flow** — pre-prompts, blocked state recovery, settings redirect, foreground re-check — is not. Every team builds the same 150+ lines of boilerplate for every permission, in every project.
+Every React Native app that uses device features needs runtime permissions. The low-level check/request API is solved by libraries like `react-native-permissions` or Expo modules. But the **UX flow** — pre-prompts, blocked state recovery, settings redirect, foreground re-check — is not. Every team builds the same 150+ lines of boilerplate for every permission, in every project.
 
-This library handles the full flow in a single hook call.
+This library handles the full flow in a single hook call, with any permissions backend.
 
 ## Quick Start
 
 ```bash
-npm install react-native-permission-handler react-native-permissions
+npm install react-native-permission-handler
 ```
 
-Set up `react-native-permissions` for your platform ([iOS](https://github.com/zoontek/react-native-permissions#ios) / [Android](https://github.com/zoontek/react-native-permissions#android) / [Expo](https://github.com/zoontek/react-native-permissions#expo)).
+### With react-native-permissions (zero config)
 
-Then:
+If you have `react-native-permissions` installed, everything works out of the box — no engine configuration needed.
+
+```bash
+npm install react-native-permissions
+```
 
 ```tsx
 import { usePermissionHandler } from "react-native-permission-handler";
@@ -47,7 +51,72 @@ function QRScannerScreen() {
 }
 ```
 
-That's it. The hook handles checking on mount, showing a pre-prompt before the system dialog, detecting blocked state, opening Settings, re-checking when the app returns, and firing callbacks.
+### With Expo modules
+
+```bash
+npm install expo-camera expo-notifications  # whichever modules you need
+```
+
+```tsx
+import { setDefaultEngine } from "react-native-permission-handler";
+import { createExpoEngine } from "react-native-permission-handler/expo";
+import * as Camera from "expo-camera";
+import * as Notifications from "expo-notifications";
+
+// Set once at app startup
+setDefaultEngine(
+  createExpoEngine({
+    permissions: {
+      camera: Camera,
+      notifications: Notifications,
+    },
+  })
+);
+```
+
+Then use the hooks with plain string identifiers:
+
+```tsx
+const camera = usePermissionHandler({
+  permission: "camera",
+  prePrompt: { title: "Camera", message: "We need camera access." },
+  blockedPrompt: { title: "Blocked", message: "Enable in Settings." },
+});
+```
+
+### With a custom engine
+
+Implement the `PermissionEngine` interface to use any permissions backend:
+
+```tsx
+import type { PermissionEngine } from "react-native-permission-handler";
+
+const myEngine: PermissionEngine = {
+  check: async (permission) => { /* return "granted" | "denied" | "blocked" | "limited" | "unavailable" */ },
+  request: async (permission) => { /* request and return status */ },
+  openSettings: async () => { /* open app settings */ },
+};
+
+// Use globally
+setDefaultEngine(myEngine);
+
+// Or per-hook
+const camera = usePermissionHandler({
+  permission: "camera",
+  engine: myEngine,
+  // ...
+});
+```
+
+## Engine Resolution
+
+When a hook needs to call a permission API, it resolves the engine in this order:
+
+1. **Config prop** — `engine` passed directly to the hook/component
+2. **Global default** — set via `setDefaultEngine()`
+3. **Auto-fallback** — lazily loads `react-native-permissions` if installed
+
+If none of the above resolves, a clear error message explains the three options.
 
 ## State Machine
 
@@ -98,11 +167,11 @@ The core of the library is a pure state machine that drives the entire permissio
 | `prePrompt` | Permission is requestable. Show a friendly explanation before the system dialog. |
 | `requesting` | System permission dialog is showing. |
 | `granted` | Permission is granted. Show the protected content. |
-| `denied` | User dismissed the pre-prompt ("Not Now") or denied via system dialog. Permission is still requestable next time. |
+| `denied` | User dismissed the pre-prompt or denied via system dialog. Still requestable. |
 | `blocked` | Permission is permanently denied. Only Settings can fix it. |
 | `blockedPrompt` | Showing the "go to Settings" prompt. |
-| `openingSettings` | User tapped "Open Settings". Waiting for app to return to foreground. |
-| `recheckingAfterSettings` | App returned from Settings. Re-checking permission status. |
+| `openingSettings` | User tapped "Open Settings". Waiting for return. |
+| `recheckingAfterSettings` | App returned from Settings. Re-checking status. |
 | `unavailable` | Device doesn't support this feature. Terminal state. |
 
 ## API Reference
@@ -115,33 +184,31 @@ The main hook. Manages the full permission lifecycle.
 
 ```typescript
 {
-  // The permission to manage (from react-native-permissions PERMISSIONS constants)
-  permission: Permission | "notifications";
+  permission: string;                // permission identifier (engine-specific)
+  engine?: PermissionEngine;         // optional — overrides global/fallback
 
-  // Pre-prompt shown BEFORE the system dialog
   prePrompt: {
     title: string;
     message: string;
-    confirmLabel?: string;   // default: "Continue"
-    cancelLabel?: string;    // default: "Not Now"
+    confirmLabel?: string;           // default: "Continue"
+    cancelLabel?: string;            // default: "Not Now"
   };
 
-  // Prompt shown when permission is permanently blocked
   blockedPrompt: {
     title: string;
     message: string;
-    settingsLabel?: string;  // default: "Open Settings"
+    settingsLabel?: string;          // default: "Open Settings"
   };
 
-  // Callbacks for analytics
+  // Callbacks
   onGrant?: () => void;
   onDeny?: () => void;
   onBlock?: () => void;
   onSettingsReturn?: (granted: boolean) => void;
 
   // Options
-  autoCheck?: boolean;            // default: true — check on mount
-  recheckOnForeground?: boolean;  // default: false
+  autoCheck?: boolean;               // default: true — check on mount
+  recheckOnForeground?: boolean;     // default: false
 }
 ```
 
@@ -150,7 +217,7 @@ The main hook. Manages the full permission lifecycle.
 ```typescript
 {
   state: PermissionFlowState;           // current state machine state
-  nativeStatus: PermissionStatus | null; // raw status from react-native-permissions
+  nativeStatus: PermissionStatus | null; // status from the engine
 
   // Convenience booleans
   isGranted: boolean;
@@ -160,7 +227,7 @@ The main hook. Manages the full permission lifecycle.
   isUnavailable: boolean;
 
   // Actions
-  request: () => void;      // confirm pre-prompt → fire system dialog
+  request: () => void;      // confirm pre-prompt -> fire system dialog
   check: () => void;        // manually re-check permission status
   dismiss: () => void;      // dismiss pre-prompt ("Not Now")
   openSettings: () => void; // open app settings for blocked permissions
@@ -221,7 +288,7 @@ Orchestrates flows for features needing multiple permissions (e.g., video call =
 ```typescript
 {
   permissions: Array<{
-    permission: Permission | "notifications";
+    permission: string;
     prePrompt: PrePromptConfig;
     blockedPrompt: BlockedPromptConfig;
     onGrant?: () => void;
@@ -233,6 +300,8 @@ Orchestrates flows for features needing multiple permissions (e.g., video call =
   // sequential: ask one at a time, stop on denial/block
   // parallel: check all at once, then request denied ones
 
+  engine?: PermissionEngine;  // optional — overrides global/fallback
+  autoCheck?: boolean;        // default: true — check all on mount
   onAllGranted?: () => void;
 }
 ```
@@ -284,7 +353,8 @@ Declarative component that renders children only when permission is granted.
 
 ```typescript
 {
-  permission: Permission | "notifications";
+  permission: string;
+  engine?: PermissionEngine;
   prePrompt: PrePromptConfig;
   blockedPrompt: BlockedPromptConfig;
   children: ReactNode;                    // shown when granted
@@ -294,7 +364,7 @@ Declarative component that renders children only when permission is granted.
   onBlock?: () => void;
   onSettingsReturn?: (granted: boolean) => void;
 
-  // Custom UI (optional — default modals are used if omitted)
+  // Custom UI (optional -- default modals are used if omitted)
   renderPrePrompt?: (props: {
     config: PrePromptConfig;
     onConfirm: () => void;
@@ -360,47 +430,113 @@ The raw state machine function. For advanced use cases where you want to build y
 import { transition } from "react-native-permission-handler";
 
 const next = transition("prePrompt", { type: "PRE_PROMPT_CONFIRM" });
-// → "requesting"
+// -> "requesting"
 ```
 
 Pure function, no side effects, no React dependency.
 
+---
+
+### `setDefaultEngine(engine)`
+
+Set a global default `PermissionEngine` for all hooks and components. Call once at app startup.
+
+```typescript
+import { setDefaultEngine } from "react-native-permission-handler";
+
+setDefaultEngine(myEngine);
+```
+
+---
+
+### `createRNPEngine()`
+
+Create an engine adapter for `react-native-permissions`. Handles notification routing internally.
+
+```typescript
+import { createRNPEngine } from "react-native-permission-handler/rnp";
+
+const engine = createRNPEngine();
+setDefaultEngine(engine);
+```
+
+You don't need to call this explicitly if `react-native-permissions` is installed — the library auto-creates it as a fallback.
+
+---
+
+### `createExpoEngine(config)`
+
+Create an engine adapter for Expo permission modules. Pass a map of permission keys to Expo modules.
+
+```typescript
+import { createExpoEngine } from "react-native-permission-handler/expo";
+import * as Camera from "expo-camera";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+
+const engine = createExpoEngine({
+  permissions: {
+    camera: Camera,
+    location: Location,
+    notifications: Notifications,
+  },
+});
+
+setDefaultEngine(engine);
+```
+
+The adapter maps Expo's `{ status, canAskAgain }` response to the library's `PermissionStatus`:
+
+| Expo status | `canAskAgain` | Maps to |
+|---|---|---|
+| `"granted"` | — | `"granted"` |
+| `"undetermined"` | — | `"denied"` |
+| `"denied"` | `true` | `"denied"` |
+| `"denied"` | `false` | `"blocked"` |
+
+---
+
+### `PermissionEngine` interface
+
+Implement this to use any permissions backend:
+
+```typescript
+interface PermissionEngine {
+  check(permission: string): Promise<PermissionStatus>;
+  request(permission: string): Promise<PermissionStatus>;
+  openSettings(): Promise<void>;
+}
+
+type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
+```
+
+The engine is responsible for:
+- Mapping its native status values to the library's `PermissionStatus`
+- Handling special cases like notifications internally
+- Opening the correct settings screen
+
 ## Platform Notes
 
 **iOS:**
-- The system permission dialog can only be shown **once** per permission. If the user denies it, you can never show it again programmatically. This is why the pre-prompt is critical — it preserves the one-time system dialog.
+- The system permission dialog can only be shown **once** per permission. If the user denies it, you can never show it again programmatically. This is why the pre-prompt is critical.
 - `check()` returns `DENIED` for both "never asked" and "denied once" — both are still requestable.
 - `BLOCKED` means the user denied via the system dialog or disabled the permission in Settings.
 
 **Android:**
 - After 2 denials, Android 11+ auto-blocks the permission. No more system dialogs.
-- For notification permissions on Android 13+, `checkNotifications()` never returns `BLOCKED` — the library handles this by using `requestNotifications()` for accurate status.
+- For notification permissions on Android 13+, `checkNotifications()` never returns `BLOCKED` — the RNP engine handles this by using `requestNotifications()` for accurate status.
 
 **Notifications:**
-- Pass `"notifications"` as the permission identifier. The library automatically routes to `checkNotifications`/`requestNotifications` instead of `check`/`request`.
+- Pass `"notifications"` as the permission identifier. The RNP engine automatically routes to `checkNotifications`/`requestNotifications`. For Expo, map `"notifications"` to `expo-notifications` in the engine config.
 
 ## Requirements
 
 - React Native >= 0.76
 - React >= 18
-- `react-native-permissions` >= 4.0.0
-
-**Expo:** Add the config plugin to your `app.json`:
-
-```json
-{
-  "plugins": [
-    [
-      "react-native-permissions",
-      {
-        "iosPermissions": ["Camera", "Microphone", "LocationWhenInUse"]
-      }
-    ]
-  ]
-}
-```
-
-**Bare React Native:** Follow the [react-native-permissions setup guide](https://github.com/zoontek/react-native-permissions#setup).
+- One of:
+  - `react-native-permissions` >= 4.0.0 (auto-detected, no config needed)
+  - Expo permission modules (use `createExpoEngine`)
+  - Custom `PermissionEngine` implementation
 
 ## License
 

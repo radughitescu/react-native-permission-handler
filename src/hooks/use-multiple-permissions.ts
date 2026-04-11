@@ -1,39 +1,13 @@
-import { useCallback, useRef, useState } from "react";
-import {
-  type PermissionStatus,
-  check,
-  checkNotifications,
-  request,
-  requestNotifications,
-} from "react-native-permissions";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveEngine } from "../engines/use-engine";
 import type {
   MultiPermissionEntry,
   MultiplePermissionsConfig,
   MultiplePermissionsResult,
+  PermissionEngine,
   PermissionFlowState,
+  PermissionStatus,
 } from "../types";
-
-function isNotifications(
-  permission: MultiPermissionEntry["permission"],
-): permission is "notifications" {
-  return permission === "notifications";
-}
-
-async function checkOne(entry: MultiPermissionEntry): Promise<PermissionStatus> {
-  if (isNotifications(entry.permission)) {
-    const result = await checkNotifications();
-    return result.status;
-  }
-  return check(entry.permission);
-}
-
-async function requestOne(entry: MultiPermissionEntry): Promise<PermissionStatus> {
-  if (isNotifications(entry.permission)) {
-    const result = await requestNotifications(["alert", "badge", "sound"]);
-    return result.status;
-  }
-  return request(entry.permission);
-}
 
 function permissionKey(entry: MultiPermissionEntry): string {
   return String(entry.permission);
@@ -43,10 +17,27 @@ function isGrantedStatus(status: PermissionStatus): boolean {
   return status === "granted" || status === "limited";
 }
 
+function statusToFlowState(status: PermissionStatus): PermissionFlowState {
+  switch (status) {
+    case "granted":
+    case "limited":
+      return "granted";
+    case "blocked":
+      return "blockedPrompt";
+    case "unavailable":
+      return "unavailable";
+    case "denied":
+      return "prePrompt";
+    default:
+      return "idle";
+  }
+}
+
 export function useMultiplePermissions(
   config: MultiplePermissionsConfig,
 ): MultiplePermissionsResult {
-  const { permissions, strategy, onAllGranted } = config;
+  const engine = resolveEngine(config.engine);
+  const { permissions, strategy, autoCheck = true, onAllGranted } = config;
   const [statuses, setStatuses] = useState<Record<string, PermissionFlowState>>(() => {
     const initial: Record<string, PermissionFlowState> = {};
     for (const entry of permissions) {
@@ -68,15 +59,15 @@ export function useMultiplePermissions(
 
     try {
       if (strategy === "sequential") {
-        await runSequential(permissions, update);
+        await runSequential(permissions, engine, update);
       } else {
-        await runParallel(permissions, update);
+        await runParallel(permissions, engine, update);
       }
 
       // Final check: are all granted?
       let allDone = true;
       for (const entry of permissions) {
-        const finalStatus = await checkOne(entry);
+        const finalStatus = await engine.check(entry.permission);
         if (!isGrantedStatus(finalStatus)) {
           allDone = false;
           break;
@@ -88,7 +79,27 @@ export function useMultiplePermissions(
     } finally {
       isRunning.current = false;
     }
-  }, [permissions, strategy, onAllGranted]);
+  }, [permissions, strategy, engine, onAllGranted]);
+
+  // Auto-check on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-only effect
+  useEffect(() => {
+    if (!autoCheck) return;
+
+    let cancelled = false;
+    async function checkAll() {
+      for (const entry of permissions) {
+        const key = permissionKey(entry);
+        const status = await engine.check(entry.permission);
+        if (cancelled) return;
+        setStatuses((prev) => ({ ...prev, [key]: statusToFlowState(status) }));
+      }
+    }
+    checkAll();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return {
     statuses,
@@ -99,13 +110,14 @@ export function useMultiplePermissions(
 
 async function runSequential(
   permissions: MultiPermissionEntry[],
+  engine: PermissionEngine,
   updateStatus: (key: string, state: PermissionFlowState) => void,
 ): Promise<void> {
   for (const entry of permissions) {
     const key = permissionKey(entry);
 
     updateStatus(key, "checking");
-    const checkStatus = await checkOne(entry);
+    const checkStatus = await engine.check(entry.permission);
 
     if (isGrantedStatus(checkStatus)) {
       updateStatus(key, "granted");
@@ -126,7 +138,7 @@ async function runSequential(
 
     // Denied — request it
     updateStatus(key, "requesting");
-    const requestStatus = await requestOne(entry);
+    const requestStatus = await engine.request(entry.permission);
 
     if (isGrantedStatus(requestStatus)) {
       updateStatus(key, "granted");
@@ -145,6 +157,7 @@ async function runSequential(
 
 async function runParallel(
   permissions: MultiPermissionEntry[],
+  engine: PermissionEngine,
   updateStatus: (key: string, state: PermissionFlowState) => void,
 ): Promise<void> {
   // Check all in parallel
@@ -152,7 +165,7 @@ async function runParallel(
     permissions.map(async (entry) => {
       const key = permissionKey(entry);
       updateStatus(key, "checking");
-      const status = await checkOne(entry);
+      const status = await engine.check(entry.permission);
       return { entry, key, status };
     }),
   );
@@ -180,7 +193,7 @@ async function runParallel(
     }
 
     updateStatus(key, "requesting");
-    const requestStatus = await requestOne(entry);
+    const requestStatus = await engine.request(entry.permission);
 
     if (isGrantedStatus(requestStatus)) {
       updateStatus(key, "granted");

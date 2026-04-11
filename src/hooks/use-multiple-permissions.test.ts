@@ -1,7 +1,11 @@
 import { createElement } from "react";
 import { type ReactTestRenderer, act, create } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { MultiplePermissionsConfig, MultiplePermissionsResult } from "../types";
+import type {
+  MultiplePermissionsConfig,
+  MultiplePermissionsResult,
+  PermissionEngine,
+} from "../types";
 
 vi.mock("react-native", () => ({
   AppState: {
@@ -10,16 +14,23 @@ vi.mock("react-native", () => ({
   },
 }));
 
-vi.mock("react-native-permissions", () => ({
-  check: vi.fn(),
-  request: vi.fn(),
-  openSettings: vi.fn(),
-  checkNotifications: vi.fn(),
-  requestNotifications: vi.fn(),
+// Mock the RNP fallback so hooks don't try to require react-native-permissions
+vi.mock("../engines/rnp-fallback", () => ({
+  getRNPFallbackEngine: vi.fn(() => {
+    throw new Error("No engine configured");
+  }),
 }));
 
-import { check, request } from "react-native-permissions";
 import { useMultiplePermissions } from "./use-multiple-permissions";
+
+function createMockEngine(overrides?: Partial<PermissionEngine>): PermissionEngine {
+  return {
+    check: vi.fn().mockResolvedValue("granted"),
+    request: vi.fn().mockResolvedValue("granted"),
+    openSettings: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
 
 function renderHook(hookFn: () => MultiplePermissionsResult) {
   const results: { current: MultiplePermissionsResult } = {} as {
@@ -39,41 +50,58 @@ function renderHook(hookFn: () => MultiplePermissionsResult) {
   };
 }
 
-const baseConfig: MultiplePermissionsConfig = {
-  permissions: [
-    {
-      permission:
-        "ios.permission.CAMERA" as MultiplePermissionsConfig["permissions"][0]["permission"],
-      prePrompt: { title: "Camera", message: "Need camera" },
-      blockedPrompt: { title: "Blocked", message: "Camera blocked" },
-    },
-    {
-      permission:
-        "ios.permission.MICROPHONE" as MultiplePermissionsConfig["permissions"][0]["permission"],
-      prePrompt: { title: "Mic", message: "Need mic" },
-      blockedPrompt: { title: "Blocked", message: "Mic blocked" },
-    },
-  ],
-  strategy: "sequential",
-};
-
 describe("useMultiplePermissions", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  let engine: PermissionEngine;
+
+  const baseConfig = (
+    overrides?: Partial<MultiplePermissionsConfig>,
+  ): MultiplePermissionsConfig => ({
+    permissions: [
+      {
+        permission: "camera",
+        prePrompt: { title: "Camera", message: "Need camera" },
+        blockedPrompt: { title: "Blocked", message: "Camera blocked" },
+      },
+      {
+        permission: "microphone",
+        prePrompt: { title: "Mic", message: "Need mic" },
+        blockedPrompt: { title: "Blocked", message: "Mic blocked" },
+      },
+    ],
+    strategy: "sequential",
+    engine,
+    ...overrides,
   });
 
-  it("initializes all permissions as idle", () => {
-    const { result } = renderHook(() => useMultiplePermissions(baseConfig));
+  beforeEach(() => {
+    vi.clearAllMocks();
+    engine = createMockEngine();
+  });
+
+  it("initializes all permissions as idle when autoCheck is false", () => {
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ autoCheck: false })));
 
     expect(result.current.allGranted).toBe(false);
     expect(Object.values(result.current.statuses)).toEqual(["idle", "idle"]);
   });
 
+  it("auto-checks all permissions on mount", async () => {
+    vi.mocked(engine.check).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
+
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
+
+    await act(async () => {});
+
+    expect(engine.check).toHaveBeenCalledTimes(2);
+    expect(result.current.statuses.camera).toBe("granted");
+    expect(result.current.statuses.microphone).toBe("prePrompt");
+  });
+
   it("grants all permissions sequentially when already granted", async () => {
-    vi.mocked(check).mockResolvedValue("granted");
+    vi.mocked(engine.check).mockResolvedValue("granted");
     const onAllGranted = vi.fn();
 
-    const { result } = renderHook(() => useMultiplePermissions({ ...baseConfig, onAllGranted }));
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ onAllGranted })));
 
     await act(async () => {
       await result.current.request();
@@ -84,52 +112,65 @@ describe("useMultiplePermissions", () => {
   });
 
   it("requests denied permissions sequentially", async () => {
-    // Initial checks return denied, final re-checks return granted
-    vi.mocked(check)
-      .mockResolvedValueOnce("denied") // camera initial check
-      .mockResolvedValueOnce("denied") // mic initial check
+    // Auto-check on mount returns denied for both, then requestAll flow
+    // checks again (denied), requests (granted), and final re-checks (granted)
+    vi.mocked(engine.check)
+      .mockResolvedValueOnce("denied") // auto-check: camera
+      .mockResolvedValueOnce("denied") // auto-check: mic
+      .mockResolvedValueOnce("denied") // requestAll: camera check
+      .mockResolvedValueOnce("denied") // requestAll: mic check
       .mockResolvedValue("granted"); // final re-checks
-    vi.mocked(request).mockResolvedValue("granted");
+    vi.mocked(engine.request).mockResolvedValue("granted");
     const onAllGranted = vi.fn();
 
-    const { result } = renderHook(() => useMultiplePermissions({ ...baseConfig, onAllGranted }));
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ onAllGranted })));
 
+    await act(async () => {});
     await act(async () => {
       await result.current.request();
     });
 
     expect(result.current.allGranted).toBe(true);
-    expect(request).toHaveBeenCalledTimes(2);
+    expect(engine.request).toHaveBeenCalledTimes(2);
     expect(onAllGranted).toHaveBeenCalledOnce();
   });
 
   it("stops sequential flow when permission is denied", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockResolvedValueOnce("denied");
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValueOnce("denied");
 
-    const { result } = renderHook(() => useMultiplePermissions(baseConfig));
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig()));
 
     await act(async () => {
       await result.current.request();
     });
 
     expect(result.current.allGranted).toBe(false);
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(engine.request).toHaveBeenCalledTimes(1);
   });
 
   it("fires per-permission callbacks", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
     const onGrant = vi.fn();
     const onDeny = vi.fn();
 
-    const config: MultiplePermissionsConfig = {
-      ...baseConfig,
+    const config = baseConfig({
       permissions: [
-        { ...baseConfig.permissions[0], onGrant },
-        { ...baseConfig.permissions[1], onDeny },
+        {
+          permission: "camera",
+          prePrompt: { title: "Camera", message: "Need camera" },
+          blockedPrompt: { title: "Blocked", message: "Camera blocked" },
+          onGrant,
+        },
+        {
+          permission: "microphone",
+          prePrompt: { title: "Mic", message: "Need mic" },
+          blockedPrompt: { title: "Blocked", message: "Mic blocked" },
+          onDeny,
+        },
       ],
-    };
+    });
 
     const { result } = renderHook(() => useMultiplePermissions(config));
 
@@ -142,18 +183,17 @@ describe("useMultiplePermissions", () => {
   });
 
   it("handles parallel strategy — checks all, then requests denied", async () => {
-    vi.mocked(check)
+    vi.mocked(engine.check)
       .mockResolvedValueOnce("granted") // camera already granted
       .mockResolvedValueOnce("denied") // mic needs request
       .mockResolvedValue("granted"); // final re-checks
-    vi.mocked(request).mockResolvedValue("granted");
+    vi.mocked(engine.request).mockResolvedValue("granted");
     const onAllGranted = vi.fn();
 
-    const config: MultiplePermissionsConfig = {
-      ...baseConfig,
+    const config = baseConfig({
       strategy: "parallel",
       onAllGranted,
-    };
+    });
 
     const { result } = renderHook(() => useMultiplePermissions(config));
 
@@ -161,7 +201,7 @@ describe("useMultiplePermissions", () => {
       await result.current.request();
     });
 
-    expect(request).toHaveBeenCalledTimes(1); // only mic was requested
+    expect(engine.request).toHaveBeenCalledTimes(1); // only mic was requested
     expect(onAllGranted).toHaveBeenCalledOnce();
   });
 });

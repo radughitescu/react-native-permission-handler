@@ -1,9 +1,9 @@
 import { createElement } from "react";
 import { type ReactTestRenderer, act, create } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PermissionHandlerConfig, PermissionHandlerResult } from "../types";
+import type { PermissionEngine, PermissionHandlerConfig, PermissionHandlerResult } from "../types";
 
-// Mocks must be before imports that use them
+// Mock react-native AppState
 vi.mock("react-native", () => ({
   AppState: {
     currentState: "active",
@@ -11,16 +11,23 @@ vi.mock("react-native", () => ({
   },
 }));
 
-vi.mock("react-native-permissions", () => ({
-  check: vi.fn(),
-  request: vi.fn(),
-  openSettings: vi.fn(),
-  checkNotifications: vi.fn(),
-  requestNotifications: vi.fn(),
+// Mock the RNP fallback so hooks don't try to require react-native-permissions
+vi.mock("../engines/rnp-fallback", () => ({
+  getRNPFallbackEngine: vi.fn(() => {
+    throw new Error("No engine configured");
+  }),
 }));
 
-import { check, checkNotifications, request, requestNotifications } from "react-native-permissions";
 import { usePermissionHandler } from "./use-permission-handler";
+
+function createMockEngine(overrides?: Partial<PermissionEngine>): PermissionEngine {
+  return {
+    check: vi.fn().mockResolvedValue("granted"),
+    request: vi.fn().mockResolvedValue("granted"),
+    openSettings: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
 
 // Minimal renderHook using react-test-renderer
 function renderHook(hookFn: () => PermissionHandlerResult) {
@@ -41,32 +48,36 @@ function renderHook(hookFn: () => PermissionHandlerResult) {
   };
 }
 
-const baseConfig: PermissionHandlerConfig = {
-  permission: "ios.permission.CAMERA" as PermissionHandlerConfig["permission"],
-  prePrompt: { title: "Camera", message: "We need camera access" },
-  blockedPrompt: { title: "Blocked", message: "Camera is blocked" },
-};
-
 describe("usePermissionHandler", () => {
+  let engine: PermissionEngine;
+
+  const baseConfig = (overrides?: Partial<PermissionHandlerConfig>): PermissionHandlerConfig => ({
+    permission: "camera",
+    engine,
+    prePrompt: { title: "Camera", message: "We need camera access" },
+    blockedPrompt: { title: "Blocked", message: "Camera is blocked" },
+    ...overrides,
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    engine = createMockEngine();
   });
 
   it("auto-checks on mount and transitions to granted", async () => {
-    vi.mocked(check).mockResolvedValue("granted");
-    const { result } = renderHook(() => usePermissionHandler(baseConfig));
+    vi.mocked(engine.check).mockResolvedValue("granted");
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
 
-    // After mount, should be checking
     await act(async () => {});
 
     expect(result.current.isGranted).toBe(true);
     expect(result.current.state).toBe("granted");
-    expect(check).toHaveBeenCalledWith(baseConfig.permission);
+    expect(engine.check).toHaveBeenCalledWith("camera");
   });
 
   it("transitions to prePrompt when permission is denied", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    const { result } = renderHook(() => usePermissionHandler(baseConfig));
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
 
     await act(async () => {});
 
@@ -74,8 +85,8 @@ describe("usePermissionHandler", () => {
   });
 
   it("transitions to blockedPrompt when permission is blocked", async () => {
-    vi.mocked(check).mockResolvedValue("blocked");
-    const { result } = renderHook(() => usePermissionHandler(baseConfig));
+    vi.mocked(engine.check).mockResolvedValue("blocked");
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
 
     await act(async () => {});
 
@@ -84,8 +95,8 @@ describe("usePermissionHandler", () => {
   });
 
   it("transitions to unavailable", async () => {
-    vi.mocked(check).mockResolvedValue("unavailable");
-    const { result } = renderHook(() => usePermissionHandler(baseConfig));
+    vi.mocked(engine.check).mockResolvedValue("unavailable");
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
 
     await act(async () => {});
 
@@ -94,20 +105,20 @@ describe("usePermissionHandler", () => {
   });
 
   it("skips auto-check when autoCheck is false", async () => {
-    const { result } = renderHook(() => usePermissionHandler({ ...baseConfig, autoCheck: false }));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ autoCheck: false })));
 
     await act(async () => {});
 
     expect(result.current.state).toBe("idle");
-    expect(check).not.toHaveBeenCalled();
+    expect(engine.check).not.toHaveBeenCalled();
   });
 
   it("requests permission and fires onGrant", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockResolvedValue("granted");
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
     const onGrant = vi.fn();
 
-    const { result } = renderHook(() => usePermissionHandler({ ...baseConfig, onGrant }));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ onGrant })));
 
     await act(async () => {});
     expect(result.current.state).toBe("prePrompt");
@@ -121,11 +132,11 @@ describe("usePermissionHandler", () => {
   });
 
   it("fires onDeny when request is denied", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockResolvedValue("denied");
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("denied");
     const onDeny = vi.fn();
 
-    const { result } = renderHook(() => usePermissionHandler({ ...baseConfig, onDeny }));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ onDeny })));
 
     await act(async () => {});
     await act(async () => {
@@ -137,11 +148,11 @@ describe("usePermissionHandler", () => {
   });
 
   it("fires onBlock when request results in blocked", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockResolvedValue("blocked");
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("blocked");
     const onBlock = vi.fn();
 
-    const { result } = renderHook(() => usePermissionHandler({ ...baseConfig, onBlock }));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ onBlock })));
 
     await act(async () => {});
     await act(async () => {
@@ -152,33 +163,32 @@ describe("usePermissionHandler", () => {
     expect(onBlock).toHaveBeenCalled();
   });
 
-  it("uses notification API when permission is 'notifications'", async () => {
-    vi.mocked(checkNotifications).mockResolvedValue({ status: "denied", settings: {} });
-    vi.mocked(requestNotifications).mockResolvedValue({ status: "granted", settings: {} });
+  it("passes permission string to engine (notification routing is engine's job)", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
 
     const { result } = renderHook(() =>
-      usePermissionHandler({ ...baseConfig, permission: "notifications" }),
+      usePermissionHandler(baseConfig({ permission: "notifications" })),
     );
 
     await act(async () => {});
-    expect(checkNotifications).toHaveBeenCalled();
-    expect(check).not.toHaveBeenCalled();
+    expect(engine.check).toHaveBeenCalledWith("notifications");
 
     await act(async () => {
       result.current.request();
     });
 
-    expect(requestNotifications).toHaveBeenCalledWith(["alert", "badge", "sound"]);
+    expect(engine.request).toHaveBeenCalledWith("notifications");
     expect(result.current.isGranted).toBe(true);
   });
 
   it("guards against double-tap race condition", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
-    vi.mocked(request).mockImplementation(
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockImplementation(
       () => new Promise((resolve) => setTimeout(() => resolve("granted"), 50)),
     );
 
-    const { result } = renderHook(() => usePermissionHandler(baseConfig));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig()));
 
     await act(async () => {});
     expect(result.current.state).toBe("prePrompt");
@@ -188,14 +198,14 @@ describe("usePermissionHandler", () => {
       result.current.request(); // double-tap
     });
 
-    expect(request).toHaveBeenCalledTimes(1);
+    expect(engine.request).toHaveBeenCalledTimes(1);
   });
 
   it("dismiss fires onDeny and transitions to denied", async () => {
-    vi.mocked(check).mockResolvedValue("denied");
+    vi.mocked(engine.check).mockResolvedValue("denied");
     const onDeny = vi.fn();
 
-    const { result } = renderHook(() => usePermissionHandler({ ...baseConfig, onDeny }));
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ onDeny })));
 
     await act(async () => {});
     expect(result.current.state).toBe("prePrompt");

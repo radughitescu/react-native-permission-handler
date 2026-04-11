@@ -1,27 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
-import {
-  type PermissionStatus,
-  check,
-  checkNotifications,
-  openSettings,
-  request,
-  requestNotifications,
-} from "react-native-permissions";
 import { transition } from "../core/state-machine";
+import { resolveEngine } from "../engines/use-engine";
 import type {
   PermissionFlowState,
   PermissionHandlerConfig,
   PermissionHandlerResult,
+  PermissionStatus,
 } from "../types";
 
-function isNotifications(
-  permission: PermissionHandlerConfig["permission"],
-): permission is "notifications" {
-  return permission === "notifications";
-}
-
 export function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandlerResult {
+  const engine = resolveEngine(config.engine);
   const [flowState, setFlowState] = useState<PermissionFlowState>("idle");
   const [nativeStatus, setNativeStatus] = useState<PermissionStatus | null>(null);
   const isRequesting = useRef(false);
@@ -33,13 +22,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const checkPermission = useCallback(async () => {
     setFlowState((s) => transition(s, { type: "CHECK" }));
     try {
-      let status: PermissionStatus;
-      if (isNotifications(permission)) {
-        const result = await checkNotifications();
-        status = result.status;
-      } else {
-        status = await check(permission);
-      }
+      const status = await engine.check(permission);
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "CHECK_RESULT", status });
@@ -49,7 +32,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     } catch {
       setFlowState("idle");
     }
-  }, [permission, onGrant]);
+  }, [engine, permission, onGrant]);
 
   const requestPermission = useCallback(async () => {
     if (isRequesting.current) return;
@@ -57,13 +40,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
 
     setFlowState((s) => transition(s, { type: "PRE_PROMPT_CONFIRM" }));
     try {
-      let status: PermissionStatus;
-      if (isNotifications(permission)) {
-        const result = await requestNotifications(["alert", "badge", "sound"]);
-        status = result.status;
-      } else {
-        status = await request(permission);
-      }
+      const status = await engine.request(permission);
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "REQUEST_RESULT", status });
@@ -77,7 +54,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     } finally {
       isRequesting.current = false;
     }
-  }, [permission, onGrant, onDeny, onBlock]);
+  }, [engine, permission, onGrant, onDeny, onBlock]);
 
   const dismiss = useCallback(() => {
     setFlowState((s) => transition(s, { type: "PRE_PROMPT_DISMISS" }));
@@ -88,23 +65,17 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     setFlowState((s) => transition(s, { type: "OPEN_SETTINGS" }));
     waitingForSettings.current = true;
     try {
-      await openSettings();
+      await engine.openSettings();
     } catch {
       waitingForSettings.current = false;
       setFlowState("blockedPrompt");
     }
-  }, []);
+  }, [engine]);
 
   const recheckAfterSettings = useCallback(async () => {
     setFlowState((s) => transition(s, { type: "SETTINGS_RETURN" }));
     try {
-      let status: PermissionStatus;
-      if (isNotifications(permission)) {
-        const result = await checkNotifications();
-        status = result.status;
-      } else {
-        status = await check(permission);
-      }
+      const status = await engine.check(permission);
       setNativeStatus(status);
       setFlowState((s) => {
         const next = transition(s, { type: "RECHECK_RESULT", status });
@@ -115,7 +86,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     } catch {
       setFlowState("blockedPrompt");
     }
-  }, [permission, onGrant, onSettingsReturn]);
+  }, [engine, permission, onGrant, onSettingsReturn]);
 
   // Auto-check on mount
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional mount-only effect

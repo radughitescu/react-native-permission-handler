@@ -1,13 +1,18 @@
 import React from "react";
 import type { ReactNode } from "react";
-import type { Permission } from "react-native-permissions";
 import { usePermissionHandler } from "../hooks/use-permission-handler";
-import type { BlockedPromptConfig, PermissionCallbacks, PrePromptConfig } from "../types";
+import type {
+  BlockedPromptConfig,
+  PermissionCallbacks,
+  PermissionEngine,
+  PrePromptConfig,
+} from "../types";
 import { DefaultBlockedPrompt } from "./default-blocked-prompt";
 import { DefaultPrePrompt } from "./default-pre-prompt";
 
 export interface PermissionGateProps extends PermissionCallbacks {
-  permission: Permission | "notifications";
+  permission: string;
+  engine?: PermissionEngine;
   prePrompt: PrePromptConfig;
   blockedPrompt: BlockedPromptConfig;
   children: ReactNode;
@@ -25,6 +30,7 @@ export interface PermissionGateProps extends PermissionCallbacks {
 
 export function PermissionGate({
   permission,
+  engine,
   prePrompt,
   blockedPrompt,
   children,
@@ -38,6 +44,7 @@ export function PermissionGate({
 }: PermissionGateProps) {
   const handler = usePermissionHandler({
     permission,
+    engine,
     prePrompt,
     blockedPrompt,
     onGrant,

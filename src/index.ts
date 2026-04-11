@@ -4,13 +4,16 @@ export type {
   MultiplePermissionsConfig,
   MultiplePermissionsResult,
   PermissionCallbacks,
+  PermissionEngine,
   PermissionFlowEvent,
   PermissionFlowState,
   PermissionHandlerConfig,
   PermissionHandlerResult,
+  PermissionStatus,
   PrePromptConfig,
 } from "./types";
 
+export { setDefaultEngine } from "./engines/resolve";
 export { transition } from "./core/state-machine";
 export { usePermissionHandler } from "./hooks/use-permission-handler";
 export { useMultiplePermissions } from "./hooks/use-multiple-permissions";

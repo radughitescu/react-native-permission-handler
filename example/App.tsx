@@ -1,13 +1,13 @@
 import { StatusBar } from "expo-status-bar";
 import React, { Suspense, useState } from "react";
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBoundary } from "./demos/ErrorBoundary";
 
 type Demo = "hook" | "gate" | "multi" | null;
@@ -20,6 +20,7 @@ export default function App() {
   const [demo, setDemo] = useState<Demo>(null);
 
   return (
+    <SafeAreaProvider>
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -62,6 +63,7 @@ export default function App() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
