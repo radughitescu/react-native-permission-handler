@@ -59,5 +59,14 @@ export const styles = StyleSheet.create({
   outlineBtnText: { color: "#007AFF", fontSize: 16, fontWeight: "600" },
   grantedBox: { backgroundColor: "#E8F9EE", borderRadius: 10, padding: 16, marginTop: 12 },
   grantedText: { color: "#1B7A3D", fontSize: 14, textAlign: "center" },
+  limitedBox: { backgroundColor: "#FFF8E1", borderRadius: 10, padding: 16, marginTop: 12 },
+  limitedText: { color: "#8D6E00", fontSize: 14, textAlign: "center" },
+  activePrompt: {
+    backgroundColor: "#F5F5F5",
+    borderRadius: 10,
+    padding: 16,
+    marginTop: 12,
+  },
+  activePromptTitle: { fontSize: 15, fontWeight: "600", marginBottom: 8, textAlign: "center" },
   fallback: { fontSize: 14, color: "#999", textAlign: "center", padding: 20 },
 });

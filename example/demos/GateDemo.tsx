@@ -17,6 +17,7 @@ export default function GateDemo() {
         blockedPrompt={{
           title: "Camera Blocked",
           message: "Please enable camera in Settings.",
+          dismissLabel: "Maybe Later",
         }}
         fallback={<Text style={styles.fallback}>Checking permission...</Text>}
       >

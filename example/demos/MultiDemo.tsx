@@ -1,12 +1,6 @@
-import { Linking, Text, TouchableOpacity, View } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useMultiplePermissions } from "react-native-permission-handler";
 import { CAMERA, MICROPHONE, styles } from "./shared";
-
-const hasBlocked = (statuses: Record<string, string>) =>
-  Object.values(statuses).some((s) => s === "blockedPrompt" || s === "blocked");
-
-const allIdle = (statuses: Record<string, string>) =>
-  Object.values(statuses).every((s) => s === "idle");
 
 export default function MultiDemo() {
   const perms = useMultiplePermissions({
@@ -30,7 +24,9 @@ export default function MultiDemo() {
     onAllGranted: () => console.log("All permissions granted!"),
   });
 
-  const blocked = hasBlocked(perms.statuses);
+  const active = perms.activePermission;
+  const activeHandler = active ? perms.handlers[active] : null;
+  const activeState = activeHandler?.state;
 
   return (
     <View style={styles.demoCard}>
@@ -43,11 +39,13 @@ export default function MultiDemo() {
           <Text
             style={[
               styles.value,
-              status === "granted" && styles.granted,
+              (status === "granted" || status === "limited") && styles.granted,
               (status === "blockedPrompt" || status === "blocked") && { color: "#FF3B30" },
+              active === key && { fontWeight: "800" },
             ]}
           >
             {String(status)}
+            {active === key ? " (active)" : ""}
           </Text>
         </View>
       ))}
@@ -59,29 +57,62 @@ export default function MultiDemo() {
         </Text>
       </View>
 
-      {!perms.allGranted && !blocked && (
-        <TouchableOpacity style={styles.primaryBtn} onPress={perms.request}>
-          <Text style={styles.primaryBtnText}>Request All</Text>
-        </TouchableOpacity>
+      {perms.blockedPermissions.length > 0 && (
+        <View style={styles.statusRow}>
+          <Text style={styles.label}>Blocked:</Text>
+          <Text style={[styles.value, { color: "#FF3B30" }]}>
+            {perms.blockedPermissions.map((k) => k.split(".").pop()).join(", ")}
+          </Text>
+        </View>
       )}
 
-      {blocked && (
-        <>
-          <View style={{ backgroundColor: "#FFF3CD", borderRadius: 10, padding: 14, marginTop: 12 }}>
-            <Text style={{ fontSize: 14, color: "#664D03", lineHeight: 20 }}>
-              One or more permissions are blocked. Open Settings to enable them, then come back.
-            </Text>
+      {/* Start flow button — show when no active permission and not all granted */}
+      {!active && !perms.allGranted && (
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={perms.request}>
+            <Text style={styles.primaryBtnText}>Request All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={perms.reset}>
+            <Text style={styles.secondaryBtnText}>Reset</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Pre-prompt actions for the active permission */}
+      {activeHandler && activeState === "prePrompt" && (
+        <View style={styles.activePrompt}>
+          <Text style={styles.activePromptTitle}>
+            Allow {active?.split(".").pop()}?
+          </Text>
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.primaryBtn} onPress={activeHandler.request}>
+              <Text style={styles.primaryBtnText}>Continue</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={activeHandler.dismiss}>
+              <Text style={styles.secondaryBtnText}>Not Now</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            style={[styles.primaryBtn, { backgroundColor: "#FF9500" }]}
-            onPress={() => Linking.openSettings()}
-          >
-            <Text style={styles.primaryBtnText}>Open Settings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.outlineBtn} onPress={perms.request}>
-            <Text style={styles.outlineBtnText}>Re-check</Text>
-          </TouchableOpacity>
-        </>
+        </View>
+      )}
+
+      {/* Blocked actions for the active permission */}
+      {activeHandler && activeState === "blockedPrompt" && (
+        <View style={styles.activePrompt}>
+          <Text style={styles.activePromptTitle}>
+            {active?.split(".").pop()} is blocked
+          </Text>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={[styles.primaryBtn, { backgroundColor: "#FF9500" }]}
+              onPress={activeHandler.openSettings}
+            >
+              <Text style={styles.primaryBtnText}>Open Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={activeHandler.dismissBlocked}>
+              <Text style={styles.secondaryBtnText}>Skip</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {perms.allGranted && (

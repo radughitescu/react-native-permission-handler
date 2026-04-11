@@ -15,6 +15,7 @@ export default function HookDemo() {
       title: "Camera Blocked",
       message: "Camera access was denied. Please enable it in your device settings.",
       settingsLabel: "Open Settings",
+      dismissLabel: "Not Now",
     },
     onGrant: () => console.log("Camera granted!"),
     onDeny: () => console.log("Camera denied"),
@@ -37,6 +38,7 @@ export default function HookDemo() {
 
       <View style={styles.flags}>
         <Flag label="granted" active={camera.isGranted} />
+        <Flag label="limited" active={camera.isLimited} />
         <Flag label="denied" active={camera.isDenied} />
         <Flag label="blocked" active={camera.isBlocked} />
         <Flag label="checking" active={camera.isChecking} />
@@ -55,18 +57,36 @@ export default function HookDemo() {
       )}
 
       {camera.state === "blockedPrompt" && (
-        <TouchableOpacity style={styles.primaryBtn} onPress={camera.openSettings}>
-          <Text style={styles.primaryBtnText}>Open Settings</Text>
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.primaryBtn} onPress={camera.openSettings}>
+            <Text style={styles.primaryBtnText}>Open Settings</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={camera.dismissBlocked}>
+            <Text style={styles.secondaryBtnText}>Not Now</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {camera.isLimited && (
+        <View style={styles.limitedBox}>
+          <Text style={styles.limitedText}>
+            Limited access granted. You selected specific photos only.
+          </Text>
+        </View>
       )}
 
       {(camera.state === "idle" || camera.isDenied) && (
-        <TouchableOpacity style={styles.outlineBtn} onPress={camera.check}>
-          <Text style={styles.outlineBtnText}>Re-check</Text>
-        </TouchableOpacity>
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.outlineBtn} onPress={camera.check}>
+            <Text style={styles.outlineBtnText}>Re-check</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryBtn} onPress={camera.reset}>
+            <Text style={styles.secondaryBtnText}>Reset</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
-      {camera.isGranted && (
+      {camera.isGranted && !camera.isLimited && (
         <View style={styles.grantedBox}>
           <Text style={styles.grantedText}>Camera ready — you'd show the camera here.</Text>
         </View>
