@@ -116,6 +116,12 @@ export interface PermissionHandlerResult {
  * Configuration for a single permission within useMultiplePermissions.
  */
 export interface MultiPermissionEntry extends PermissionCallbacks {
+  /**
+   * Optional stable identifier used as the key in `statuses` and `handlers`
+   * records. When omitted, the permission string is used as the key.
+   * Enables platform-agnostic row rendering without Platform.select at call sites.
+   */
+  id?: string;
   permission: string;
   prePrompt: PrePromptConfig;
   blockedPrompt: BlockedPromptConfig;

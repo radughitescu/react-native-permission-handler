@@ -355,6 +355,59 @@ describe("useMultiplePermissions", () => {
 
   // --- Reset ---
 
+  // --- Entry id keying (v0.7.0) ---
+
+  it("keys statuses and handlers by entry.id when provided", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+
+    const config: MultiplePermissionsConfig = {
+      permissions: [
+        {
+          id: "camera",
+          permission: "ios.permission.CAMERA",
+          prePrompt: { title: "Camera", message: "Need camera" },
+          blockedPrompt: { title: "Blocked", message: "Camera blocked" },
+        },
+      ],
+      strategy: "sequential",
+      engine,
+      autoCheck: false,
+    };
+
+    const { result } = renderHook(() => useMultiplePermissions(config));
+
+    expect(result.current.statuses.camera).toBeDefined();
+    expect(result.current.handlers.camera).toBeDefined();
+    expect(result.current.statuses["ios.permission.CAMERA"]).toBeUndefined();
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("camera");
+    expect(result.current.statuses.camera).toBe("prePrompt");
+  });
+
+  it("falls back to permission string when entry.id is omitted", () => {
+    const config: MultiplePermissionsConfig = {
+      permissions: [
+        {
+          permission: "ios.permission.CAMERA",
+          prePrompt: { title: "Camera", message: "Need camera" },
+          blockedPrompt: { title: "Blocked", message: "Camera blocked" },
+        },
+      ],
+      strategy: "sequential",
+      engine,
+      autoCheck: false,
+    };
+
+    const { result } = renderHook(() => useMultiplePermissions(config));
+
+    expect(result.current.statuses["ios.permission.CAMERA"]).toBeDefined();
+    expect(result.current.handlers["ios.permission.CAMERA"]).toBeDefined();
+  });
+
   it("reset returns all permissions to idle", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
 

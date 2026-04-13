@@ -13,7 +13,7 @@ import type {
 } from "../types";
 
 function permissionKey(entry: MultiPermissionEntry): string {
-  return String(entry.permission);
+  return entry.id ?? String(entry.permission);
 }
 
 function isGrantedStatus(status: PermissionStatus): boolean {
@@ -42,6 +42,21 @@ export function useMultiplePermissions(
     onAllGranted,
   } = config;
   const logger = createDebugLogger(debug, "multi");
+
+  // Dev-only: warn when entry keys collide (duplicate `id` or duplicate permission strings
+  // without distinguishing `id`s). Duplicates cause statuses/handlers to clobber each other.
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    const keys = permissions.map(permissionKey);
+    const dupes = keys.filter((k, i) => keys.indexOf(k) !== i);
+    if (dupes.length > 0) {
+      console.warn(
+        `[react-native-permission-handler] useMultiplePermissions: duplicate entry keys detected: ${[
+          ...new Set(dupes),
+        ].join(", ")}. Statuses for duplicates will clobber each other. Add unique 'id' fields.`,
+      );
+    }
+  }, [permissions]);
 
   const [statuses, setStatuses] = useState<Record<string, PermissionFlowState>>(() => {
     const initial: Record<string, PermissionFlowState> = {};
