@@ -14,6 +14,19 @@ vi.mock("react-native-permissions", () => ({
   openSettings: vi.fn(),
   checkNotifications: vi.fn(),
   requestNotifications: vi.fn(),
+  PERMISSIONS: {
+    IOS: {
+      BLUETOOTH: "ios.permission.BLUETOOTH",
+      CALENDARS: "ios.permission.CALENDARS",
+      CALENDARS_WRITE_ONLY: "ios.permission.CALENDARS_WRITE_ONLY",
+    },
+    ANDROID: {
+      ACCESS_FINE_LOCATION: "android.permission.ACCESS_FINE_LOCATION",
+      BLUETOOTH_SCAN: "android.permission.BLUETOOTH_SCAN",
+      BLUETOOTH_CONNECT: "android.permission.BLUETOOTH_CONNECT",
+      WRITE_CALENDAR: "android.permission.WRITE_CALENDAR",
+    },
+  },
 }));
 
 import {
@@ -202,5 +215,31 @@ describe("Permissions constants", () => {
     expect(Permissions.ANDROID.READ_SMS).toBe("android.permission.READ_SMS");
     expect(Permissions.ANDROID.BLUETOOTH_SCAN).toBe("android.permission.BLUETOOTH_SCAN");
     expect(Permissions.ANDROID.READ_MEDIA_VIDEO).toBe("android.permission.READ_MEDIA_VIDEO");
+  });
+});
+
+describe("Permissions.BUNDLES", () => {
+  it("BLUETOOTH returns a non-empty string[] (iOS mocked platform)", () => {
+    const bundle = Permissions.BUNDLES.BLUETOOTH;
+    expect(Array.isArray(bundle)).toBe(true);
+    expect(bundle.length).toBeGreaterThan(0);
+    for (const entry of bundle) {
+      expect(typeof entry).toBe("string");
+    }
+    expect(bundle).toEqual(["ios.permission.BLUETOOTH"]);
+  });
+
+  it("LOCATION_BACKGROUND returns [LOCATION_WHEN_IN_USE, LOCATION_ALWAYS]", () => {
+    expect(Permissions.BUNDLES.LOCATION_BACKGROUND).toEqual([
+      Permissions.LOCATION_WHEN_IN_USE,
+      Permissions.LOCATION_ALWAYS,
+    ]);
+  });
+
+  it("CALENDARS_WRITE_ONLY returns a single-entry string[]", () => {
+    const bundle = Permissions.BUNDLES.CALENDARS_WRITE_ONLY;
+    expect(Array.isArray(bundle)).toBe(true);
+    expect(bundle.length).toBe(1);
+    expect(typeof bundle[0]).toBe("string");
   });
 });
