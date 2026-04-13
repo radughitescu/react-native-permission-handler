@@ -9,6 +9,7 @@ import {
   requestNotifications,
 } from "react-native-permissions";
 import type { PermissionEngine, PermissionStatus } from "../types";
+import { normalizeAndroidStatus } from "./rnp-normalization";
 
 function p(ios: string, android: string | { below33: string; from33: string }): string {
   if (Platform.OS === "ios") return ios;
@@ -178,6 +179,13 @@ export interface RNPEngineOptions {
    * recovery flow instead of permanently hiding the feature. Defaults to false.
    */
   normalizePhotoLibrary?: boolean;
+  /**
+   * Opt-in: apply post-dialog status normalization for Android OS quirks.
+   * Fixes POST_NOTIFICATIONS on API<33 and dialog-dismiss misreported as
+   * blocked. Heuristic-based — see `rnp-normalization.ts` for semantics.
+   * Default: false.
+   */
+  normalizeAndroid?: boolean;
 }
 
 export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngine {
@@ -185,6 +193,8 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
     Permissions.PHOTO_LIBRARY,
     Permissions.PHOTO_LIBRARY_ADD_ONLY,
   ]);
+
+  const requestCounts = new Map<string, number>();
 
   function maybeNormalize(permission: string, status: PermissionStatus): PermissionStatus {
     if (
@@ -197,23 +207,45 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
     return status;
   }
 
+  function applyAndroidNormalization(
+    permission: string,
+    status: PermissionStatus,
+  ): PermissionStatus {
+    if (!options.normalizeAndroid) return status;
+    const apiLevel = typeof Platform.Version === "number" ? Platform.Version : 33;
+    return normalizeAndroidStatus({
+      permission,
+      status,
+      context: {
+        platform: Platform.OS === "android" ? "android" : "ios",
+        apiLevel,
+        requestCount: requestCounts.get(permission) ?? 0,
+      },
+    });
+  }
+
+  function normalize(permission: string, status: PermissionStatus): PermissionStatus {
+    return applyAndroidNormalization(permission, maybeNormalize(permission, status));
+  }
+
   return {
     async check(permission: string): Promise<PermissionStatus> {
       if (permission === "notifications") {
         const result = await checkNotifications();
-        return maybeNormalize(permission, result.status as PermissionStatus);
+        return normalize(permission, result.status as PermissionStatus);
       }
       const status = (await check(permission as Permission)) as PermissionStatus;
-      return maybeNormalize(permission, status);
+      return normalize(permission, status);
     },
 
     async request(permission: string): Promise<PermissionStatus> {
+      requestCounts.set(permission, (requestCounts.get(permission) ?? 0) + 1);
       if (permission === "notifications") {
         const result = await requestNotifications(["alert", "badge", "sound"]);
-        return maybeNormalize(permission, result.status as PermissionStatus);
+        return normalize(permission, result.status as PermissionStatus);
       }
       const status = (await request(permission as Permission)) as PermissionStatus;
-      return maybeNormalize(permission, status);
+      return normalize(permission, status);
     },
 
     async openSettings(): Promise<void> {

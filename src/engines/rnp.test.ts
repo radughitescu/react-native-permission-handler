@@ -218,6 +218,154 @@ describe("Permissions constants", () => {
   });
 });
 
+describe("createRNPEngine — Android normalization (opt-in)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.resetModules();
+  });
+
+  async function loadWithPlatform(os: "ios" | "android", version: number) {
+    vi.doMock("react-native", () => ({
+      Platform: {
+        OS: os,
+        Version: version,
+        select: (opts: Record<string, string>) => opts[os] ?? opts.default,
+      },
+    }));
+    const rnpMock = {
+      check: vi.fn(),
+      request: vi.fn(),
+      openSettings: vi.fn(),
+      checkNotifications: vi.fn(),
+      requestNotifications: vi.fn(),
+      PERMISSIONS: {
+        IOS: {
+          BLUETOOTH: "ios.permission.BLUETOOTH",
+          CALENDARS: "ios.permission.CALENDARS",
+          CALENDARS_WRITE_ONLY: "ios.permission.CALENDARS_WRITE_ONLY",
+        },
+        ANDROID: {
+          ACCESS_FINE_LOCATION: "android.permission.ACCESS_FINE_LOCATION",
+          BLUETOOTH_SCAN: "android.permission.BLUETOOTH_SCAN",
+          BLUETOOTH_CONNECT: "android.permission.BLUETOOTH_CONNECT",
+          WRITE_CALENDAR: "android.permission.WRITE_CALENDAR",
+        },
+      },
+    };
+    vi.doMock("react-native-permissions", () => rnpMock);
+    const { createRNPEngine: create } = await import("./rnp");
+    return { createRNPEngine: create, rnp: rnpMock };
+  }
+
+  it("rewrites POST_NOTIFICATIONS denied → granted on Android API 30 with flag on", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 30);
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    const result = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    expect(result).toBe("granted");
+  });
+
+  it("leaves POST_NOTIFICATIONS denied unchanged on Android API 33 with flag on", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 33);
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    const result = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    expect(result).toBe("denied");
+  });
+
+  it("rewrites blocked → denied on first request() call with flag on", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 34);
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create({ normalizeAndroid: true });
+
+    const result = await engine.request("android.permission.CAMERA");
+
+    expect(result).toBe("denied");
+  });
+
+  it("returns blocked on second request() call when RNP returns blocked twice", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 34);
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create({ normalizeAndroid: true });
+
+    const first = await engine.request("android.permission.CAMERA");
+    const second = await engine.request("android.permission.CAMERA");
+
+    expect(first).toBe("denied");
+    expect(second).toBe("blocked");
+  });
+
+  it("tracks request counts per-permission independently", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 34);
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create({ normalizeAndroid: true });
+
+    // Two calls on CAMERA — second becomes blocked
+    await engine.request("android.permission.CAMERA");
+    const cameraSecond = await engine.request("android.permission.CAMERA");
+    // First call on MICROPHONE — should still be denied
+    const micFirst = await engine.request("android.permission.RECORD_AUDIO");
+
+    expect(cameraSecond).toBe("blocked");
+    expect(micFirst).toBe("denied");
+  });
+
+  it("does not apply Android normalization when flag is omitted (regression)", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 30);
+    rnp.check.mockResolvedValue("denied");
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create();
+
+    expect(await engine.check("android.permission.POST_NOTIFICATIONS")).toBe("denied");
+    expect(await engine.request("android.permission.CAMERA")).toBe("blocked");
+  });
+
+  it("does not apply Android normalization when flag is false", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 30);
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: false });
+
+    expect(await engine.check("android.permission.POST_NOTIFICATIONS")).toBe("denied");
+  });
+
+  it("is a no-op on iOS even with flag on", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("ios", 17);
+    rnp.check.mockResolvedValue("blocked");
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create({ normalizeAndroid: true });
+
+    expect(await engine.check("ios.permission.CAMERA")).toBe("blocked");
+    expect(await engine.request("ios.permission.CAMERA")).toBe("blocked");
+  });
+
+  it("combines with normalizePhotoLibrary flag (both normalizations apply)", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 30);
+    // Photo lib resolves to READ_EXTERNAL_STORAGE on pre-33 Android.
+    rnp.check.mockResolvedValue("unavailable");
+    const engine = create({ normalizePhotoLibrary: true, normalizeAndroid: true });
+
+    // unavailable → blocked (photo lib), then blocked → denied (dialog dismiss, requestCount=0)
+    const result = await engine.check("android.permission.READ_EXTERNAL_STORAGE");
+    expect(result).toBe("denied");
+  });
+
+  it("request() increments count BEFORE reading, so first call sees count=1", async () => {
+    // Sanity: requestCount < 2 means counts 0 and 1 both map blocked→denied.
+    // Because request() increments first, first call sees count=1, still < 2 → denied.
+    // Second call sees count=2, not < 2 → blocked passes through.
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 34);
+    rnp.request.mockResolvedValue("blocked");
+    const engine = create({ normalizeAndroid: true });
+
+    expect(await engine.request("android.permission.CAMERA")).toBe("denied");
+    expect(await engine.request("android.permission.CAMERA")).toBe("blocked");
+  });
+});
+
 describe("Permissions.BUNDLES", () => {
   it("BLUETOOTH returns a non-empty string[] (iOS mocked platform)", () => {
     const bundle = Permissions.BUNDLES.BLUETOOTH;
