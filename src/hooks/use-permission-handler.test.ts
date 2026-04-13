@@ -352,6 +352,92 @@ describe("usePermissionHandler", () => {
   });
 });
 
+describe("Android 16 hang recovery (integration)", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.doMock("react-native", () => ({
+      AppState: {
+        currentState: "active",
+        addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+      },
+      Platform: {
+        OS: "android",
+        Version: 36,
+      },
+    }));
+    vi.doMock("../engines/rnp-fallback", () => ({
+      getRNPFallbackEngine: vi.fn(() => {
+        throw new Error("No engine configured");
+      }),
+    }));
+  });
+
+  it("auto-recovers to blockedPrompt when engine.request() hangs on Android 16+", async () => {
+    vi.useFakeTimers();
+    try {
+      const { usePermissionHandler: usePermissionHandlerAndroid } = await import(
+        "./use-permission-handler"
+      );
+
+      const hangingEngine: PermissionEngine = {
+        check: vi.fn().mockResolvedValue("denied"),
+        // Promise that never resolves — simulates the Android 16 request hang
+        request: vi.fn(() => new Promise<PermissionStatus>(() => {})),
+        openSettings: vi.fn().mockResolvedValue(undefined),
+      };
+      const onTimeout = vi.fn();
+      const onBlock = vi.fn();
+
+      const results: { current: PermissionHandlerResult } = {} as {
+        current: PermissionHandlerResult;
+      };
+      function TestComponent() {
+        results.current = usePermissionHandlerAndroid({
+          permission: "camera",
+          engine: hangingEngine,
+          prePrompt: { title: "Camera", message: "We need camera access" },
+          blockedPrompt: { title: "Blocked", message: "Camera is blocked" },
+          onTimeout,
+          onBlock,
+          // NOTE: no requestTimeout — relying on the Android 16+ default
+        });
+        return null;
+      }
+
+      let renderer: ReactTestRenderer;
+      await act(async () => {
+        renderer = create(createElement(TestComponent));
+      });
+      // Flush auto-check microtasks
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(results.current.state).toBe("prePrompt");
+
+      // Fire the request — it will hang forever without the timeout
+      act(() => {
+        void results.current.request();
+      });
+      expect(results.current.state).toBe("requesting");
+      expect(hangingEngine.request).toHaveBeenCalledWith("camera");
+
+      // Advance fake timers past the 5000ms Android 16+ default timeout
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5500);
+      });
+
+      expect(onTimeout).toHaveBeenCalledTimes(1);
+      expect(results.current.state).toBe("blockedPrompt");
+      expect(results.current.isBlocked).toBe(true);
+
+      // biome-ignore lint/style/noNonNullAssertion: renderer is assigned in act()
+      act(() => renderer!.unmount());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("shouldSkipPrePrompt", () => {
   it("returns true when value is true on ios", () => {
     expect(shouldSkipPrePrompt(true, "ios")).toBe(true);
