@@ -71,7 +71,7 @@ export function PermissionGate({
     return <>{fallback}</>;
   }
 
-  if (handler.state === "prePrompt") {
+  if (handler.state === "prePrompt" && prePrompt) {
     if (renderPrePrompt) {
       return (
         <>
@@ -96,7 +96,7 @@ export function PermissionGate({
     );
   }
 
-  if (handler.state === "blockedPrompt") {
+  if (handler.state === "blockedPrompt" && blockedPrompt) {
     if (renderBlockedPrompt) {
       return (
         <>

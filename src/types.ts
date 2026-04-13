@@ -83,8 +83,8 @@ export interface PermissionCallbacks {
 export interface PermissionHandlerConfig extends PermissionCallbacks {
   permission: string;
   engine?: PermissionEngine;
-  prePrompt: PrePromptConfig;
-  blockedPrompt: BlockedPromptConfig;
+  prePrompt?: PrePromptConfig;
+  blockedPrompt?: BlockedPromptConfig;
   autoCheck?: boolean;
   recheckOnForeground?: boolean;
   requestTimeout?: number;

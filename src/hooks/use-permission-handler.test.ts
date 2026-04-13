@@ -75,6 +75,21 @@ describe("usePermissionHandler", () => {
     expect(engine.check).toHaveBeenCalledWith("camera");
   });
 
+  it("accepts config without prePrompt or blockedPrompt (custom-UI usage)", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    const { result } = renderHook(() =>
+      usePermissionHandler({
+        engine,
+        permission: "camera",
+        // no prePrompt, no blockedPrompt — must typecheck
+      }),
+    );
+
+    await act(async () => {});
+
+    expect(result.current.state).toBeDefined();
+  });
+
   it("transitions to prePrompt when permission is denied", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
     const { result } = renderHook(() => usePermissionHandler(baseConfig()));
