@@ -103,6 +103,55 @@ describe("createRNPEngine", () => {
   });
 });
 
+describe("createRNPEngine — photo library normalization", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps unavailable → blocked for PHOTO_LIBRARY when normalizePhotoLibrary is true", async () => {
+    vi.mocked(check).mockResolvedValue("unavailable");
+    vi.mocked(request).mockResolvedValue("unavailable");
+    const engine = createRNPEngine({ normalizePhotoLibrary: true });
+
+    expect(await engine.check(Permissions.PHOTO_LIBRARY)).toBe("blocked");
+    expect(await engine.request(Permissions.PHOTO_LIBRARY)).toBe("blocked");
+  });
+
+  it("maps unavailable → blocked for PHOTO_LIBRARY_ADD_ONLY when normalizePhotoLibrary is true", async () => {
+    vi.mocked(check).mockResolvedValue("unavailable");
+    const engine = createRNPEngine({ normalizePhotoLibrary: true });
+
+    expect(await engine.check(Permissions.PHOTO_LIBRARY_ADD_ONLY)).toBe("blocked");
+  });
+
+  it("leaves unavailable unchanged for non-photo permissions with the flag on", async () => {
+    vi.mocked(check).mockResolvedValue("unavailable");
+    vi.mocked(request).mockResolvedValue("unavailable");
+    const engine = createRNPEngine({ normalizePhotoLibrary: true });
+
+    expect(await engine.check(Permissions.CAMERA)).toBe("unavailable");
+    expect(await engine.request(Permissions.CAMERA)).toBe("unavailable");
+  });
+
+  it("leaves unavailable unchanged when flag is false or omitted", async () => {
+    vi.mocked(check).mockResolvedValue("unavailable");
+    const engineDefault = createRNPEngine();
+    const engineFalse = createRNPEngine({ normalizePhotoLibrary: false });
+
+    expect(await engineDefault.check(Permissions.PHOTO_LIBRARY)).toBe("unavailable");
+    expect(await engineFalse.check(Permissions.PHOTO_LIBRARY)).toBe("unavailable");
+  });
+
+  it("does not affect non-unavailable statuses for photo permissions", async () => {
+    const engine = createRNPEngine({ normalizePhotoLibrary: true });
+
+    for (const status of ["granted", "denied", "blocked", "limited"] as const) {
+      vi.mocked(check).mockResolvedValue(status);
+      expect(await engine.check(Permissions.PHOTO_LIBRARY)).toBe(status);
+    }
+  });
+});
+
 describe("Permissions constants", () => {
   it("resolves cross-platform permissions to iOS strings (mocked platform)", () => {
     expect(Permissions.CAMERA).toBe("ios.permission.CAMERA");

@@ -104,22 +104,51 @@ export const Permissions = {
   },
 } as const;
 
-export function createRNPEngine(): PermissionEngine {
+export interface RNPEngineOptions {
+  /**
+   * When true, rewrites `unavailable` → `blocked` for photo library permissions
+   * (`PHOTO_LIBRARY`, `PHOTO_LIBRARY_ADD_ONLY`). This is opt-in because iOS may
+   * return `unavailable` for photo library in edge cases where the user can
+   * still recover access via Settings — normalizing to `blocked` surfaces the
+   * recovery flow instead of permanently hiding the feature. Defaults to false.
+   */
+  normalizePhotoLibrary?: boolean;
+}
+
+export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngine {
+  const photoPermissions = new Set<string>([
+    Permissions.PHOTO_LIBRARY,
+    Permissions.PHOTO_LIBRARY_ADD_ONLY,
+  ]);
+
+  function maybeNormalize(permission: string, status: PermissionStatus): PermissionStatus {
+    if (
+      options.normalizePhotoLibrary &&
+      status === "unavailable" &&
+      photoPermissions.has(permission)
+    ) {
+      return "blocked";
+    }
+    return status;
+  }
+
   return {
     async check(permission: string): Promise<PermissionStatus> {
       if (permission === "notifications") {
         const result = await checkNotifications();
-        return result.status as PermissionStatus;
+        return maybeNormalize(permission, result.status as PermissionStatus);
       }
-      return (await check(permission as Permission)) as PermissionStatus;
+      const status = (await check(permission as Permission)) as PermissionStatus;
+      return maybeNormalize(permission, status);
     },
 
     async request(permission: string): Promise<PermissionStatus> {
       if (permission === "notifications") {
         const result = await requestNotifications(["alert", "badge", "sound"]);
-        return result.status as PermissionStatus;
+        return maybeNormalize(permission, result.status as PermissionStatus);
       }
-      return (await request(permission as Permission)) as PermissionStatus;
+      const status = (await request(permission as Permission)) as PermissionStatus;
+      return maybeNormalize(permission, status);
     },
 
     async openSettings(): Promise<void> {
