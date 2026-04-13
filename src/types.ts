@@ -163,4 +163,11 @@ export interface MultiplePermissionsResult {
   blockedPermissions: string[];
   request: () => void;
   reset: () => void;
+  /**
+   * Resume a stopped sequential flow. Rebuilds the pending queue from
+   * entries whose current status is not granted/limited and starts the
+   * first one. No-op in parallel mode or when nothing is pending.
+   * Unlike `request()`, this does not re-check already-granted permissions.
+   */
+  resume: () => void;
 }

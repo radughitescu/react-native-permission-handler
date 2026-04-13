@@ -408,6 +408,98 @@ describe("useMultiplePermissions", () => {
     expect(result.current.handlers["ios.permission.CAMERA"]).toBeDefined();
   });
 
+  // --- Resume (v0.7.0) ---
+
+  it("resume() picks up at the first ungranted permission in sequential mode", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    // Requests: a -> granted, b -> denied
+    vi.mocked(engine.request).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
+
+    const config: MultiplePermissionsConfig = {
+      permissions: [
+        {
+          id: "a",
+          permission: "camera",
+          prePrompt: { title: "A", message: "a" },
+          blockedPrompt: { title: "A", message: "a" },
+        },
+        {
+          id: "b",
+          permission: "microphone",
+          prePrompt: { title: "B", message: "b" },
+          blockedPrompt: { title: "B", message: "b" },
+        },
+        {
+          id: "c",
+          permission: "location",
+          prePrompt: { title: "C", message: "c" },
+          blockedPrompt: { title: "C", message: "c" },
+        },
+      ],
+      strategy: "sequential",
+      engine,
+      autoCheck: false,
+    };
+
+    const { result } = renderHook(() => useMultiplePermissions(config));
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBe("a");
+
+    // Confirm a -> granted, advances to b
+    await act(async () => {
+      await result.current.handlers.a.request();
+    });
+
+    expect(result.current.statuses.a).toBe("granted");
+    expect(result.current.activePermission).toBe("b");
+
+    // Confirm b -> denied, sequential stops
+    await act(async () => {
+      await result.current.handlers.b.request();
+    });
+
+    expect(result.current.statuses.a).toBe("granted");
+    expect(result.current.statuses.b).toBe("denied");
+    expect(result.current.activePermission).toBeNull();
+
+    // Resume should rebuild the queue from ungranted entries and set active
+    act(() => {
+      result.current.resume();
+    });
+
+    expect(result.current.activePermission).toBe("b");
+    // Engine.request should not have been called a third time by resume()
+    expect(engine.request).toHaveBeenCalledTimes(2);
+    // a is still granted — resume did not touch it
+    expect(result.current.statuses.a).toBe("granted");
+  });
+
+  it("resume() is a no-op in parallel mode", async () => {
+    vi.mocked(engine.check).mockResolvedValue("granted");
+
+    const { result } = renderHook(() =>
+      useMultiplePermissions(baseConfig({ strategy: "parallel" })),
+    );
+
+    await act(async () => {
+      await result.current.request();
+    });
+
+    expect(result.current.activePermission).toBeNull();
+
+    expect(() => {
+      act(() => {
+        result.current.resume();
+      });
+    }).not.toThrow();
+
+    expect(result.current.activePermission).toBeNull();
+  });
+
   it("reset returns all permissions to idle", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
 

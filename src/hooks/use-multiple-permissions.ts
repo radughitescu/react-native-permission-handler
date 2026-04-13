@@ -354,6 +354,20 @@ export function useMultiplePermissions(
     };
   }, []);
 
+  const resume = useCallback(() => {
+    if (strategy !== "sequential") return;
+    const current = statusesRef.current;
+    const pending = permissions.map(permissionKey).filter((key) => {
+      const s = current[key];
+      return s !== "granted" && s !== "limited";
+    });
+    if (pending.length === 0) return;
+    pendingQueue.current = pending;
+    isRunning.current = true;
+    setActivePermission(pending[0] ?? null);
+    logger.info(`resume: restarting sequential flow at ${pending[0]}`);
+  }, [permissions, strategy, logger]);
+
   const resetAll = useCallback(() => {
     generation.current += 1;
     isRunning.current = false;
@@ -401,5 +415,6 @@ export function useMultiplePermissions(
     blockedPermissions,
     request: requestAll,
     reset: resetAll,
+    resume,
   };
 }
