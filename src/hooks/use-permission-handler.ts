@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Platform } from "react-native";
+import { getDefaultRequestTimeout } from "../core/android-defaults";
 import { createDebugLogger } from "../core/debug-logger";
 import { transition } from "../core/state-machine";
 import { PermissionTimeoutError, withTimeout } from "../core/with-timeout";
@@ -33,7 +34,6 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const {
     permission,
     autoCheck = true,
-    requestTimeout,
     onTimeout,
     debug,
     onGrant,
@@ -42,6 +42,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     onSettingsReturn,
     skipPrePrompt,
   } = config;
+  const requestTimeout = getDefaultRequestTimeout(config.requestTimeout);
 
   const skipPrePromptResolved = shouldSkipPrePrompt(skipPrePrompt, Platform.OS);
   const requestPermissionRef = useRef<() => Promise<void>>(async () => {});

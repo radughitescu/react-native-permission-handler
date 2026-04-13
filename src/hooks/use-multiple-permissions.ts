@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
+import { getDefaultRequestTimeout } from "../core/android-defaults";
 import { createDebugLogger } from "../core/debug-logger";
 import { PermissionTimeoutError, withTimeout } from "../core/with-timeout";
 import { resolveEngine } from "../engines/use-engine";
@@ -32,15 +33,8 @@ export function useMultiplePermissions(
   config: MultiplePermissionsConfig,
 ): MultiplePermissionsResult {
   const engine = resolveEngine(config.engine);
-  const {
-    permissions,
-    strategy,
-    autoCheck = true,
-    requestTimeout,
-    onTimeout,
-    debug,
-    onAllGranted,
-  } = config;
+  const { permissions, strategy, autoCheck = true, onTimeout, debug, onAllGranted } = config;
+  const requestTimeout = getDefaultRequestTimeout(config.requestTimeout);
   const logger = createDebugLogger(debug, "multi");
 
   // Dev-only: warn when entry keys collide (duplicate `id` or duplicate permission strings
