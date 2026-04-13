@@ -5,6 +5,7 @@ import type {
   BlockedPromptConfig,
   PermissionCallbacks,
   PermissionEngine,
+  PermissionHandlerResult,
   PrePromptConfig,
 } from "../types";
 import { DefaultBlockedPrompt } from "./default-blocked-prompt";
@@ -28,6 +29,14 @@ export interface PermissionGateProps extends PermissionCallbacks {
     onDismiss: () => void;
   }) => ReactNode;
   renderDenied?: (props: { check: () => void }) => ReactNode;
+  /**
+   * Optional render function called when the permission is in the `limited`
+   * state (e.g., iOS 14+ partial photo library access). When omitted, the
+   * gate falls through to rendering `children` (backward-compatible with
+   * v0.6.0). Receives the full handler result, so you can call
+   * `requestFullAccess()` from inside the rendered UI.
+   */
+  renderLimited?: (result: PermissionHandlerResult) => ReactNode;
 }
 
 export function PermissionGate({
@@ -40,6 +49,7 @@ export function PermissionGate({
   renderPrePrompt,
   renderBlockedPrompt,
   renderDenied,
+  renderLimited,
   onGrant,
   onDeny,
   onBlock,
@@ -55,6 +65,10 @@ export function PermissionGate({
     onBlock,
     onSettingsReturn,
   });
+
+  if (handler.state === "limited" && renderLimited) {
+    return <>{renderLimited(handler)}</>;
+  }
 
   if (handler.isGranted) {
     return <>{children}</>;
