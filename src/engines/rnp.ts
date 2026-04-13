@@ -195,6 +195,7 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
   ]);
 
   const requestCounts = new Map<string, number>();
+  const lastRequestStatus = new Map<string, PermissionStatus>();
 
   function maybeNormalize(permission: string, status: PermissionStatus): PermissionStatus {
     if (
@@ -220,6 +221,7 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
         platform: Platform.OS === "android" ? "android" : "ios",
         apiLevel,
         requestCount: requestCounts.get(permission) ?? 0,
+        lastRequestStatus: lastRequestStatus.get(permission) ?? null,
       },
     });
   }
@@ -240,12 +242,16 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
 
     async request(permission: string): Promise<PermissionStatus> {
       requestCounts.set(permission, (requestCounts.get(permission) ?? 0) + 1);
+      let normalized: PermissionStatus;
       if (permission === "notifications") {
         const result = await requestNotifications(["alert", "badge", "sound"]);
-        return normalize(permission, result.status as PermissionStatus);
+        normalized = normalize(permission, result.status as PermissionStatus);
+      } else {
+        const status = (await request(permission as Permission)) as PermissionStatus;
+        normalized = normalize(permission, status);
       }
-      const status = (await request(permission as Permission)) as PermissionStatus;
-      return normalize(permission, status);
+      lastRequestStatus.set(permission, normalized);
+      return normalized;
     },
 
     async openSettings(): Promise<void> {

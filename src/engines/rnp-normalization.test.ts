@@ -3,6 +3,7 @@ import {
   type NormalizationContext,
   normalizeAndroidStatus,
   normalizeDialogDismissAsDenied,
+  normalizeNotificationsCheckFromRequestCache,
   normalizePostNotificationsPreApi33,
 } from "./rnp-normalization";
 
@@ -10,6 +11,7 @@ const androidCtx = (overrides: Partial<NormalizationContext> = {}): Normalizatio
   platform: "android",
   apiLevel: 34,
   requestCount: 0,
+  lastRequestStatus: null,
   ...overrides,
 });
 
@@ -20,7 +22,12 @@ describe("normalizeAndroidStatus", () => {
         normalizeAndroidStatus({
           permission: "android.permission.POST_NOTIFICATIONS",
           status,
-          context: { platform: "ios", apiLevel: 0, requestCount: 0 },
+          context: {
+            platform: "ios",
+            apiLevel: 0,
+            requestCount: 0,
+            lastRequestStatus: null,
+          },
         }),
       ).toBe(status);
     }
@@ -125,5 +132,53 @@ describe("normalizeDialogDismissAsDenied", () => {
     expect(normalizeDialogDismissAsDenied("granted", androidCtx({ requestCount: 0 }))).toBe(
       "granted",
     );
+  });
+});
+
+describe("normalizeNotificationsCheckFromRequestCache", () => {
+  it("rewrites POST_NOTIFICATIONS denied → blocked when lastRequestStatus=blocked", () => {
+    expect(
+      normalizeNotificationsCheckFromRequestCache(
+        "android.permission.POST_NOTIFICATIONS",
+        "denied",
+        "blocked",
+      ),
+    ).toBe("blocked");
+  });
+
+  it("leaves POST_NOTIFICATIONS denied unchanged when lastRequestStatus=null (no cache)", () => {
+    expect(
+      normalizeNotificationsCheckFromRequestCache(
+        "android.permission.POST_NOTIFICATIONS",
+        "denied",
+        null,
+      ),
+    ).toBe("denied");
+  });
+
+  it("leaves POST_NOTIFICATIONS denied unchanged when lastRequestStatus=denied", () => {
+    expect(
+      normalizeNotificationsCheckFromRequestCache(
+        "android.permission.POST_NOTIFICATIONS",
+        "denied",
+        "denied",
+      ),
+    ).toBe("denied");
+  });
+
+  it("leaves POST_NOTIFICATIONS granted unchanged even when lastRequestStatus=blocked (user re-granted)", () => {
+    expect(
+      normalizeNotificationsCheckFromRequestCache(
+        "android.permission.POST_NOTIFICATIONS",
+        "granted",
+        "blocked",
+      ),
+    ).toBe("granted");
+  });
+
+  it("leaves non-notifications permission denied unchanged even when lastRequestStatus=blocked", () => {
+    expect(
+      normalizeNotificationsCheckFromRequestCache("android.permission.CAMERA", "denied", "blocked"),
+    ).toBe("denied");
   });
 });

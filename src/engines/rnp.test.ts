@@ -353,6 +353,80 @@ describe("createRNPEngine — Android normalization (opt-in)", () => {
     expect(result).toBe("denied");
   });
 
+  it("check() returns blocked for POST_NOTIFICATIONS after cached request blocked", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 33);
+    // Two requests both return blocked. First is rewritten to denied (dialog dismiss),
+    // second passes through as blocked and is cached. Then check() returns denied raw,
+    // which the new heuristic rewrites to blocked using the cache.
+    rnp.request.mockResolvedValue("blocked");
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    const first = await engine.request("android.permission.POST_NOTIFICATIONS");
+    const second = await engine.request("android.permission.POST_NOTIFICATIONS");
+    const checked = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    expect(first).toBe("denied");
+    expect(second).toBe("blocked");
+    expect(checked).toBe("blocked");
+  });
+
+  it("check() stays denied when request cache says denied (no lie to correct)", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 33);
+    rnp.request.mockResolvedValue("denied");
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    await engine.request("android.permission.POST_NOTIFICATIONS");
+    const checked = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    expect(checked).toBe("denied");
+  });
+
+  it("notifications cache replay is scoped to POST_NOTIFICATIONS (CAMERA unaffected)", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 33);
+    rnp.request.mockResolvedValue("blocked");
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    // Drive CAMERA cache to blocked via two requests.
+    await engine.request("android.permission.CAMERA");
+    const camSecond = await engine.request("android.permission.CAMERA");
+    const camChecked = await engine.check("android.permission.CAMERA");
+
+    expect(camSecond).toBe("blocked");
+    // CAMERA check() should NOT be rewritten — heuristic is POST_NOTIFICATIONS-only.
+    expect(camChecked).toBe("denied");
+  });
+
+  it("notifications cache replay does not fire when normalizeAndroid is false", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("android", 33);
+    rnp.request.mockResolvedValue("blocked");
+    rnp.check.mockResolvedValue("denied");
+    const engine = create();
+
+    await engine.request("android.permission.POST_NOTIFICATIONS");
+    await engine.request("android.permission.POST_NOTIFICATIONS");
+    const checked = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    // Without the flag, raw RNP `denied` from check() passes through untouched.
+    expect(checked).toBe("denied");
+  });
+
+  it("notifications cache replay is no-op on iOS", async () => {
+    const { createRNPEngine: create, rnp } = await loadWithPlatform("ios", 17);
+    rnp.request.mockResolvedValue("blocked");
+    rnp.check.mockResolvedValue("denied");
+    const engine = create({ normalizeAndroid: true });
+
+    // On iOS the whole android normalization pipeline is a no-op.
+    await engine.request("android.permission.POST_NOTIFICATIONS");
+    await engine.request("android.permission.POST_NOTIFICATIONS");
+    const checked = await engine.check("android.permission.POST_NOTIFICATIONS");
+
+    expect(checked).toBe("denied");
+  });
+
   it("request() increments count BEFORE reading, so first call sees count=1", async () => {
     // Sanity: requestCount < 2 means counts 0 and 1 both map blocked→denied.
     // Because request() increments first, first call sees count=1, still < 2 → denied.
