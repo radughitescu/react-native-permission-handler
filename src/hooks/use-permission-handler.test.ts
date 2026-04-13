@@ -1,7 +1,12 @@
 import { createElement } from "react";
 import { type ReactTestRenderer, act, create } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { PermissionEngine, PermissionHandlerConfig, PermissionHandlerResult } from "../types";
+import type {
+  PermissionEngine,
+  PermissionHandlerConfig,
+  PermissionHandlerResult,
+  PermissionStatus,
+} from "../types";
 
 // Mock react-native AppState + Platform
 vi.mock("react-native", () => ({
@@ -280,6 +285,53 @@ describe("usePermissionHandler", () => {
 
     expect(result.current.state).toBe("prePrompt");
     expect(engine.request).not.toHaveBeenCalled();
+  });
+
+  it("requestFullAccess calls engine.requestFullAccess and re-checks state", async () => {
+    const mockRequestFullAccess = vi.fn().mockResolvedValue("granted");
+    const checkMock = vi
+      .fn<[string], Promise<PermissionStatus>>()
+      .mockResolvedValueOnce("limited")
+      .mockResolvedValue("granted");
+    engine = {
+      check: checkMock,
+      request: vi.fn().mockResolvedValue("granted"),
+      openSettings: vi.fn().mockResolvedValue(undefined),
+      requestFullAccess: mockRequestFullAccess,
+    };
+
+    const { result } = renderHook(() =>
+      usePermissionHandler(baseConfig({ permission: "photoLibrary" })),
+    );
+
+    await act(async () => {});
+    expect(result.current.state).toBe("limited");
+    expect(result.current.isLimited).toBe(true);
+
+    await act(async () => {
+      await result.current.requestFullAccess();
+    });
+
+    expect(mockRequestFullAccess).toHaveBeenCalledWith("photoLibrary");
+    expect(result.current.state).toBe("granted");
+  });
+
+  it("requestFullAccess throws when engine does not implement it", async () => {
+    engine = {
+      check: vi.fn().mockResolvedValue("limited"),
+      request: vi.fn().mockResolvedValue("granted"),
+      openSettings: vi.fn().mockResolvedValue(undefined),
+      // no requestFullAccess
+    };
+
+    const { result } = renderHook(() =>
+      usePermissionHandler(baseConfig({ permission: "photoLibrary" })),
+    );
+
+    await act(async () => {});
+    expect(result.current.state).toBe("limited");
+
+    await expect(result.current.requestFullAccess()).rejects.toThrow(/requestFullAccess/);
   });
 
   it("dismiss fires onDeny and transitions to denied", async () => {

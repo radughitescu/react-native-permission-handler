@@ -122,6 +122,13 @@ export interface PermissionHandlerResult {
   dismissBlocked: () => void;
   openSettings: () => void;
   reset: () => void;
+  /**
+   * Request full access when currently in the `limited` state (iOS 14+ photo
+   * library partial access). Calls `engine.requestFullAccess()` and re-checks
+   * the permission afterwards to update the hook state. Throws a clear error
+   * if the current engine does not implement `requestFullAccess`.
+   */
+  requestFullAccess: () => Promise<PermissionStatus>;
 }
 
 /**

@@ -160,6 +160,33 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     logger.info("reset to idle");
   }, [logger]);
 
+  const requestFullAccess = useCallback(async (): Promise<PermissionStatus> => {
+    if (!engine.requestFullAccess) {
+      throw new Error(
+        "[react-native-permission-handler] The current engine does not implement requestFullAccess(). Switch to an engine that supports it (e.g., the Expo engine's presentPermissionsPickerAsync) or provide a custom engine.",
+      );
+    }
+    const gen = generation.current;
+    const status = await engine.requestFullAccess(permission);
+    if (generation.current !== gen) return status;
+    setFlowState((s) => {
+      const next = transition(s, { type: "CHECK" });
+      logger.transition(s, next, "CHECK");
+      return next;
+    });
+    const recheck = await engine.check(permission);
+    if (generation.current !== gen) return status;
+    setNativeStatus(recheck);
+    setFlowState((s) => {
+      const next = transition(s, { type: "CHECK_RESULT", status: recheck });
+      logger.transition(s, next, `CHECK_RESULT:${recheck}`);
+      if ((next === "granted" || next === "limited") && s !== "granted" && s !== "limited")
+        onGrant?.();
+      return next;
+    });
+    return status;
+  }, [engine, permission, logger, onGrant]);
+
   const recheckAfterSettings = useCallback(async () => {
     const gen = generation.current;
     setFlowState((s) => {
@@ -224,5 +251,6 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     dismissBlocked,
     openSettings: goToSettings,
     reset,
+    requestFullAccess,
   };
 }
