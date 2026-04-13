@@ -3,11 +3,14 @@ import { type ReactTestRenderer, act, create } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PermissionEngine, PermissionHandlerConfig, PermissionHandlerResult } from "../types";
 
-// Mock react-native AppState
+// Mock react-native AppState + Platform
 vi.mock("react-native", () => ({
   AppState: {
     currentState: "active",
     addEventListener: vi.fn(() => ({ remove: vi.fn() })),
+  },
+  Platform: {
+    OS: "ios",
   },
 }));
 
@@ -18,7 +21,7 @@ vi.mock("../engines/rnp-fallback", () => ({
   }),
 }));
 
-import { usePermissionHandler } from "./use-permission-handler";
+import { shouldSkipPrePrompt, usePermissionHandler } from "./use-permission-handler";
 
 function createMockEngine(overrides?: Partial<PermissionEngine>): PermissionEngine {
   return {
@@ -249,6 +252,36 @@ describe("usePermissionHandler", () => {
     expect(result.current.nativeStatus).toBeNull();
   });
 
+  it("skipPrePrompt=true bypasses prePrompt and calls engine.request directly", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
+    const onGrant = vi.fn();
+
+    const { result } = renderHook(() =>
+      usePermissionHandler(baseConfig({ skipPrePrompt: true, onGrant })),
+    );
+
+    await act(async () => {});
+
+    // After autoCheck, we should have bypassed prePrompt entirely and reached granted.
+    expect(engine.request).toHaveBeenCalledWith("camera");
+    expect(result.current.state).toBe("granted");
+    expect(result.current.isGranted).toBe(true);
+    expect(onGrant).toHaveBeenCalled();
+  });
+
+  it("skipPrePrompt=false (default) still goes through prePrompt on denied", async () => {
+    vi.mocked(engine.check).mockResolvedValue("denied");
+    vi.mocked(engine.request).mockResolvedValue("granted");
+
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ skipPrePrompt: false })));
+
+    await act(async () => {});
+
+    expect(result.current.state).toBe("prePrompt");
+    expect(engine.request).not.toHaveBeenCalled();
+  });
+
   it("dismiss fires onDeny and transitions to denied", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
     const onDeny = vi.fn();
@@ -264,5 +297,36 @@ describe("usePermissionHandler", () => {
 
     expect(result.current.isDenied).toBe(true);
     expect(onDeny).toHaveBeenCalled();
+  });
+});
+
+describe("shouldSkipPrePrompt", () => {
+  it("returns true when value is true on ios", () => {
+    expect(shouldSkipPrePrompt(true, "ios")).toBe(true);
+  });
+
+  it("returns true when value is true on android", () => {
+    expect(shouldSkipPrePrompt(true, "android")).toBe(true);
+  });
+
+  it("returns false when value is 'android' on ios", () => {
+    expect(shouldSkipPrePrompt("android", "ios")).toBe(false);
+  });
+
+  it("returns true when value is 'android' on android", () => {
+    expect(shouldSkipPrePrompt("android", "android")).toBe(true);
+  });
+
+  it("returns false when value is false on ios", () => {
+    expect(shouldSkipPrePrompt(false, "ios")).toBe(false);
+  });
+
+  it("returns false when value is false on android", () => {
+    expect(shouldSkipPrePrompt(false, "android")).toBe(false);
+  });
+
+  it("returns false when value is undefined (default)", () => {
+    expect(shouldSkipPrePrompt(undefined, "ios")).toBe(false);
+    expect(shouldSkipPrePrompt(undefined, "android")).toBe(false);
   });
 });

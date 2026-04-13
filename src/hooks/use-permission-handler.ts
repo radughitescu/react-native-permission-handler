@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 import { createDebugLogger } from "../core/debug-logger";
 import { transition } from "../core/state-machine";
 import { PermissionTimeoutError, withTimeout } from "../core/with-timeout";
@@ -10,6 +10,16 @@ import type {
   PermissionHandlerResult,
   PermissionStatus,
 } from "../types";
+
+/**
+ * Pure helper: should the pre-prompt be skipped on denied status given
+ * the configured value and current OS?
+ */
+export function shouldSkipPrePrompt(value: boolean | "android" | undefined, os: string): boolean {
+  if (value === true) return true;
+  if (value === "android" && os === "android") return true;
+  return false;
+}
 
 export function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandlerResult {
   const engine = resolveEngine(config.engine);
@@ -30,7 +40,11 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     onDeny,
     onBlock,
     onSettingsReturn,
+    skipPrePrompt,
   } = config;
+
+  const skipPrePromptResolved = shouldSkipPrePrompt(skipPrePrompt, Platform.OS);
+  const requestPermissionRef = useRef<() => Promise<void>>(async () => {});
 
   const logger = createDebugLogger(debug, permission);
 
@@ -52,11 +66,15 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
           onGrant?.();
         return next;
       });
+      if (status === "denied" && skipPrePromptResolved) {
+        logger.info("skipPrePrompt: bypassing prePrompt, requesting immediately");
+        await requestPermissionRef.current();
+      }
     } catch {
       if (generation.current !== gen) return;
       setFlowState("idle");
     }
-  }, [engine, permission, logger, onGrant]);
+  }, [engine, permission, logger, onGrant, skipPrePromptResolved]);
 
   const requestPermission = useCallback(async () => {
     if (isRequesting.current) return;
@@ -96,6 +114,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
       isRequesting.current = false;
     }
   }, [engine, permission, requestTimeout, onTimeout, logger, onGrant, onDeny, onBlock]);
+
+  requestPermissionRef.current = requestPermission;
 
   const dismiss = useCallback(() => {
     setFlowState((s) => {

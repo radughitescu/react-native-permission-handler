@@ -90,6 +90,18 @@ export interface PermissionHandlerConfig extends PermissionCallbacks {
   requestTimeout?: number;
   onTimeout?: () => void;
   debug?: boolean | ((msg: string) => void);
+  /**
+   * Skip the pre-prompt state and transition checking → requesting directly
+   * on denied status. Useful for composer/inline-action flows (voice notes,
+   * camera button in chat) where a pre-prompt is redundant.
+   *
+   * - `true`: always skip (WARNING: on iOS, burns the one-shot system dialog
+   *   without user warm-up — high risk of permanent denial).
+   * - `"android"`: skip only on Android (Android allows 2 dialog attempts, so
+   *   this is safer than `true`).
+   * - `false` / omitted: never skip (default, safest UX).
+   */
+  skipPrePrompt?: boolean | "android";
 }
 
 /**

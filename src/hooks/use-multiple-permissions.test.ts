@@ -12,6 +12,9 @@ vi.mock("react-native", () => ({
     currentState: "active",
     addEventListener: vi.fn(() => ({ remove: vi.fn() })),
   },
+  Platform: {
+    OS: "ios",
+  },
 }));
 
 // Mock the RNP fallback so hooks don't try to require react-native-permissions
