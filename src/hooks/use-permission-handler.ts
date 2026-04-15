@@ -47,6 +47,10 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     onBlock,
     onSettingsReturn,
     skipPrePrompt,
+    renderPrePrompt,
+    renderBlockedPrompt,
+    prePrompt,
+    blockedPrompt,
   } = config;
   const requestTimeout = getDefaultRequestTimeout(config.requestTimeout);
 
@@ -308,6 +312,25 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     return () => subscription.remove();
   }, [recheckAfterSettings, recheckOnForeground, checkPermission]);
 
+  // Compute the hook-level UI node for the current state. Returns null when
+  // the state does not match a configured render prop, or when the relevant
+  // prompt config is missing. This lets imperative flows use render-prop
+  // ergonomics without wrapping in PermissionGate.
+  let ui: ReturnType<NonNullable<typeof renderPrePrompt>> | null = null;
+  if (flowState === "prePrompt" && renderPrePrompt && prePrompt) {
+    ui = renderPrePrompt({
+      config: prePrompt,
+      onConfirm: requestPermission,
+      onCancel: dismiss,
+    });
+  } else if (flowState === "blockedPrompt" && renderBlockedPrompt && blockedPrompt) {
+    ui = renderBlockedPrompt({
+      config: blockedPrompt,
+      onOpenSettings: goToSettings,
+      onDismiss: dismissBlocked,
+    });
+  }
+
   return {
     state: flowState,
     nativeStatus,
@@ -326,5 +349,6 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     reset,
     requestFullAccess,
     refresh,
+    ui,
   };
 }

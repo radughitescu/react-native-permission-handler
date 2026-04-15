@@ -87,6 +87,29 @@ export interface PermissionCallbacks {
 }
 
 /**
+ * Props passed to a hook-level pre-prompt render function.
+ */
+export interface HookPrePromptRenderProps {
+  config: PrePromptConfig;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+/**
+ * Props passed to a hook-level blocked-prompt render function.
+ */
+export interface HookBlockedPromptRenderProps {
+  config: BlockedPromptConfig;
+  onOpenSettings: () => void;
+  onDismiss: () => void;
+}
+
+// We avoid importing `ReactNode` directly in `types.ts` to keep this file
+// framework-agnostic; consumers of the config can use React's `ReactNode`.
+// biome-ignore lint/suspicious/noExplicitAny: intentional ReactNode substitute
+type RenderNode = any;
+
+/**
  * Configuration for usePermissionHandler.
  */
 export interface PermissionHandlerConfig extends PermissionCallbacks {
@@ -99,6 +122,21 @@ export interface PermissionHandlerConfig extends PermissionCallbacks {
   requestTimeout?: number;
   onTimeout?: () => void;
   debug?: boolean | ((msg: string) => void);
+  /**
+   * Optional pre-prompt render function for imperative hook-driven flows
+   * (KYC camera, inline composers, etc.) that want full UI control without
+   * wrapping the hook in a `PermissionGate`. When provided, the hook result
+   * exposes a computed `ui` node that renders this function while `state`
+   * is `"prePrompt"` and `null` otherwise. Requires `prePrompt` config to
+   * actually emit anything.
+   */
+  renderPrePrompt?: (props: HookPrePromptRenderProps) => RenderNode;
+  /**
+   * Optional blocked-prompt render function, analogous to `renderPrePrompt`.
+   * Applied when `state` is `"blockedPrompt"`. Requires `blockedPrompt`
+   * config to actually emit anything.
+   */
+  renderBlockedPrompt?: (props: HookBlockedPromptRenderProps) => RenderNode;
   /**
    * Skip the pre-prompt state and transition checking → requesting directly
    * on denied status. Useful for composer/inline-action flows (voice notes,
@@ -153,6 +191,22 @@ export interface PermissionHandlerResult {
    * Returns the new `PermissionStatus` after the request completes.
    */
   refresh: () => Promise<PermissionStatus>;
+  /**
+   * Computed React node that renders the config's `renderPrePrompt` or
+   * `renderBlockedPrompt` function for the current state, or `null` when the
+   * state does not match a configured render prop. Lets imperative hook
+   * users get render-prop ergonomics without wrapping in `PermissionGate`:
+   *
+   * ```tsx
+   * const camera = usePermissionHandler({
+   *   permission: Permissions.CAMERA,
+   *   prePrompt: { ... },
+   *   renderPrePrompt: ({ onConfirm, onCancel }) => <MyCustomModal ... />,
+   * });
+   * return <View>{camera.ui}{otherUi}</View>;
+   * ```
+   */
+  ui: RenderNode | null;
 }
 
 /**

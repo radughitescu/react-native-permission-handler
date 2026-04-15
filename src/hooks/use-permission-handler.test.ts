@@ -434,6 +434,101 @@ describe("usePermissionHandler", () => {
     await expect(result.current.requestFullAccess()).rejects.toThrow(/requestFullAccess/);
   });
 
+  describe("hook render props (ui)", () => {
+    it("ui is null when no render props are configured", async () => {
+      vi.mocked(engine.check).mockResolvedValue("denied");
+      const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+      await act(async () => {});
+      expect(result.current.state).toBe("prePrompt");
+      expect(result.current.ui).toBeNull();
+    });
+
+    it("ui renders renderPrePrompt output while state is prePrompt", async () => {
+      vi.mocked(engine.check).mockResolvedValue("denied");
+      const renderSpy = vi.fn(() => "CUSTOM_PRE_PROMPT_UI");
+
+      const { result } = renderHook(() =>
+        usePermissionHandler(
+          baseConfig({
+            renderPrePrompt: renderSpy as unknown as PermissionHandlerConfig["renderPrePrompt"],
+          }),
+        ),
+      );
+      await act(async () => {});
+
+      expect(result.current.state).toBe("prePrompt");
+      expect(renderSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ title: "Camera" }),
+          onConfirm: expect.any(Function),
+          onCancel: expect.any(Function),
+        }),
+      );
+      expect(result.current.ui).toBe("CUSTOM_PRE_PROMPT_UI");
+    });
+
+    it("ui is null outside of prePrompt state even when renderPrePrompt is set", async () => {
+      vi.mocked(engine.check).mockResolvedValue("granted");
+      const renderSpy = vi.fn(() => "SHOULD_NOT_RENDER");
+
+      const { result } = renderHook(() =>
+        usePermissionHandler(
+          baseConfig({
+            renderPrePrompt: renderSpy as unknown as PermissionHandlerConfig["renderPrePrompt"],
+          }),
+        ),
+      );
+      await act(async () => {});
+
+      expect(result.current.state).toBe("granted");
+      expect(result.current.ui).toBeNull();
+      expect(renderSpy).not.toHaveBeenCalled();
+    });
+
+    it("ui renders renderBlockedPrompt output while state is blockedPrompt", async () => {
+      vi.mocked(engine.check).mockResolvedValue("blocked");
+      const renderSpy = vi.fn(() => "CUSTOM_BLOCKED_UI");
+
+      const { result } = renderHook(() =>
+        usePermissionHandler(
+          baseConfig({
+            renderBlockedPrompt:
+              renderSpy as unknown as PermissionHandlerConfig["renderBlockedPrompt"],
+          }),
+        ),
+      );
+      await act(async () => {});
+
+      expect(result.current.state).toBe("blockedPrompt");
+      expect(renderSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config: expect.objectContaining({ title: "Blocked" }),
+          onOpenSettings: expect.any(Function),
+          onDismiss: expect.any(Function),
+        }),
+      );
+      expect(result.current.ui).toBe("CUSTOM_BLOCKED_UI");
+    });
+
+    it("ui is null when prePrompt config is missing even if renderPrePrompt is set", async () => {
+      vi.mocked(engine.check).mockResolvedValue("denied");
+      const renderSpy = vi.fn(() => "NO_CONFIG");
+
+      const { result } = renderHook(() =>
+        usePermissionHandler({
+          engine,
+          permission: "camera",
+          renderPrePrompt: renderSpy as unknown as PermissionHandlerConfig["renderPrePrompt"],
+        }),
+      );
+      await act(async () => {});
+
+      expect(result.current.state).toBe("prePrompt");
+      expect(result.current.ui).toBeNull();
+      expect(renderSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it("dismiss fires onDeny and transitions to denied", async () => {
     vi.mocked(engine.check).mockResolvedValue("denied");
     const onDeny = vi.fn();

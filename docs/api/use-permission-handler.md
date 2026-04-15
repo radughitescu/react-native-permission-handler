@@ -28,6 +28,8 @@ function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandle
 | `requestTimeout` | `number` | Request timeout in ms. On Android 16 (API 36+) a 5 s default is applied automatically — set an explicit value to override. |
 | `onTimeout` | `() => void` | Fires when the request hits `requestTimeout`. The hook transitions to `blockedPrompt`. |
 | `skipPrePrompt` | `boolean \| "android"` | Skip the pre-prompt and jump straight from `checking` to `requesting` on denied status. `"android"` is the safe choice — Android allows two dialog attempts; iOS is one-shot. See [voice-note recipe](../recipes/voice-note-composer.md). |
+| `renderPrePrompt` | `(props) => ReactNode` | Optional render function for the `prePrompt` state. When provided, the hook result's `ui` field renders its output while `state === "prePrompt"`. Lets imperative flows (KYC camera, inline composer) get render-prop ergonomics without wrapping in `PermissionGate`. Requires `prePrompt` config to actually emit. Receives `{ config, onConfirm, onCancel }`. |
+| `renderBlockedPrompt` | `(props) => ReactNode` | Optional render function for the `blockedPrompt` state. Analogous to `renderPrePrompt`, applied when `state === "blockedPrompt"`. Requires `blockedPrompt` config. Receives `{ config, onOpenSettings, onDismiss }`. |
 | `debug` | `boolean \| (msg: string) => void` | `true` logs state transitions to `console.log`. Pass a function to route logs to your own logger (Sentry, Logger, etc.). |
 | `onGrant` | `() => void` | Fires on transitions into `granted` **or** `limited`. `isGranted` is also `true` for both. |
 | `onDeny` | `() => void` | Fires on pre-prompt dismiss, blocked-prompt dismiss, or denied system dialog. |
@@ -54,6 +56,7 @@ function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandle
 | `reset()` | `() => void` | Reset to `idle`. Cancels any in-flight work via a generation counter. |
 | `requestFullAccess()` | `() => Promise<PermissionStatus>` | Upgrade from `limited` to `granted` via `engine.requestFullAccess()`. **Only supported on the Expo engine today** (via `MediaLibrary.presentPermissionsPickerAsync`). The RNP engine throws because `react-native-permissions` does not expose a JS binding for iOS `presentLimitedLibraryPicker` yet — tracked as future work. See [limited-photo recipe](../recipes/limited-photo-upgrade.md). |
 | `refresh()` | `() => Promise<PermissionStatus>` | Force a fresh `engine.request()` bypassing `check()`. Use when the native status reports `granted` but the permission is functionally broken (e.g. iOS 18 camera/photo corrupted-grant after a system update). From terminal states (`granted`, `limited`, `denied`, `blocked`, `unavailable`) transitions to `requesting` and re-runs the native dialog. From non-terminal states it's a no-op that returns the current native status unchanged. |
+| `ui` | `ReactNode \| null` | Computed render-prop output for the current state. Returns the value of `config.renderPrePrompt` while `state === "prePrompt"`, or `config.renderBlockedPrompt` while `state === "blockedPrompt"`. `null` when neither applies. Use this to get render-prop ergonomics from the bare hook without wrapping in `PermissionGate`: `<View>{camera.ui}{restOfScreen}</View>`. |
 
 ## Minimal example
 
