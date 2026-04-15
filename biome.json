@@ -16,6 +16,13 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["node_modules", "dist", "example", "*.json"]
+    "ignore": [
+      "node_modules",
+      "dist",
+      "example",
+      "*.json",
+      "docs/.vitepress/cache",
+      "docs/.vitepress/dist"
+    ]
   }
 }
