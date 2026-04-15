@@ -11,6 +11,8 @@ React Native app. Cross-links point to the [API reference](../api/README.md) for
   stable `id` keys and `resume()` for settings round-trips.
 - [Voice note composer](./voice-note-composer.md) — inline microphone access using
   `skipPrePrompt: "android"`.
+- [Speech recognition](./speech-recognition.md) — iOS needs both `MICROPHONE` and
+  `SPEECH_RECOGNITION`; Android needs only `RECORD_AUDIO`. Platform-aware sequential flow.
 
 ## Platform-specific bundles
 
