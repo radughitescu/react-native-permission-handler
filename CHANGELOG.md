@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.8.1 — 2026-04-15
+
+Small follow-up patch. Surfaces the Expo location-accuracy metadata on the hook result that
+v0.8.0 only captured internally, plus two documentation additions from post-release feedback.
+
+### New features
+
+- **`PermissionHandlerResult.metadata`** — engine-specific metadata snapshot, populated when the
+  resolved engine implements the optional new `PermissionEngine.getMetadata()` method. Currently
+  only the Expo engine populates a field: `metadata.locationAccuracy` is `"full"` or `"reduced"`
+  on iOS 14+ after a location permission call via Expo SDK 55+. The field shape is intentionally
+  tight — new fields are added only when a concrete engine + use case justifies them.
+
+### Docs
+
+- New recipe: [speech-recognition](./docs/recipes/speech-recognition.md) — iOS needs both
+  `MICROPHONE` and `SPEECH_RECOGNITION`; Android needs only `RECORD_AUDIO`. Platform-aware
+  sequential flow with stable `id` keys.
+- README: new **App Tracking Transparency timing gotcha** in the iOS Platform gotchas section.
+  ATT can only be requested while the app is in the `.active` state; calling it from a
+  cold-start mount effect silently returns `denied`. Rule of thumb included.
+
+### Non-breaking
+
+All changes are additive. `PermissionEngine.getMetadata` is optional — engines that don't
+implement it continue to work (the hook returns an empty `metadata` object). Existing code
+destructuring `PermissionHandlerResult` is unaffected.
+
+---
+
 ## 0.8.0 — 2026-04-15
 
 The **Permission Recovery & State Reliability** release. Every v0.7.0-era recovery path is now
