@@ -21,6 +21,10 @@ React Native app. Cross-links point to the [API reference](../api/README.md) for
 
 ## Reliability and testing
 
+- [Recheck on foreground](./recheck-on-foreground.md) — auto-detect permission changes made in
+  system Settings outside your blocked-prompt flow (`recheckOnForeground: true`).
+- [Stale permission state](./stale-permission-state.md) — work around Expo's cold-start stale
+  `undetermined` bug ([expo/expo#42084](https://github.com/expo/expo/issues/42084)).
 - [Android status normalization](./android-normalization.md) — when and why to enable
   `normalizeAndroid` and `normalizePhotoLibrary`.
 - [Testing with `createTestingEngine`](./testing-with-testing-engine.md) — unit-testing components
