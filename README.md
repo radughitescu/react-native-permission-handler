@@ -204,6 +204,13 @@ Drop-in solutions to real problems. See [docs/recipes/](./docs/recipes/README.md
 - `check()` returns `denied` for both "never asked" and "denied once" — both are still requestable.
 - `limited` is an iOS 14+ state for photo library partial access. `isGranted` is `true` for it
   (backward compatible), `isLimited` distinguishes it.
+- **App Tracking Transparency (`APP_TRACKING_TRANSPARENCY`)** can only be requested while the
+  app is in the `.active` state. Calling it from a mount effect or cold-start path often fires
+  while the app is still `.inactive`, and iOS silently returns `denied` with no system prompt —
+  the user never gets a chance to allow tracking. Defer the request until after your first
+  user interaction, or gate it on an `AppState` listener that waits for `active`. Rule of thumb:
+  never call `request("ios.permission.APP_TRACKING_TRANSPARENCY")` from `useEffect(..., [])` on
+  a screen the user is navigating *to* for the first time.
 
 **Android:**
 
