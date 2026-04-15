@@ -50,6 +50,8 @@ export function transition(
             return "denied";
           case "blocked":
             return "blockedPrompt";
+          case "unavailable":
+            return "unavailable";
           default:
             return state;
         }
@@ -79,6 +81,8 @@ export function transition(
             return "blockedPrompt";
           case "denied":
             return "blockedPrompt";
+          case "unavailable":
+            return "unavailable";
           default:
             return state;
         }

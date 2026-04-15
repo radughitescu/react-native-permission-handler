@@ -83,6 +83,12 @@ describe("transition — requesting", () => {
     );
   });
 
+  it("transitions to unavailable on unavailable status", () => {
+    expect(transition("requesting", { type: "REQUEST_RESULT", status: "unavailable" })).toBe(
+      "unavailable",
+    );
+  });
+
   it("ignores unrelated events", () => {
     expect(transition("requesting", { type: "CHECK" })).toBe("requesting");
     expect(transition("requesting", { type: "PRE_PROMPT_CONFIRM" })).toBe("requesting");
@@ -155,6 +161,15 @@ describe("transition — recheckingAfterSettings", () => {
         status: "denied",
       }),
     ).toBe("blockedPrompt");
+  });
+
+  it("transitions to unavailable on unavailable status", () => {
+    expect(
+      transition("recheckingAfterSettings", {
+        type: "RECHECK_RESULT",
+        status: "unavailable",
+      }),
+    ).toBe("unavailable");
   });
 
   it("ignores unrelated events", () => {
