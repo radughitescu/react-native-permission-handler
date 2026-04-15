@@ -56,6 +56,17 @@ describe("createTestingEngine", () => {
     ]);
   });
 
+  it("tracks openSettings calls with the passed permission in history", async () => {
+    const engine = createTestingEngine();
+    await engine.openSettings("camera");
+    await engine.openSettings();
+
+    expect(engine.getRequestHistory()).toEqual([
+      { permission: "camera", method: "openSettings" },
+      { permission: "", method: "openSettings" },
+    ]);
+  });
+
   it("reset clears history and restores initial statuses", async () => {
     const engine = createTestingEngine({ camera: "denied" });
 

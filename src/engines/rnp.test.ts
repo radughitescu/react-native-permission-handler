@@ -6,6 +6,9 @@ vi.mock("react-native", () => ({
     Version: 33,
     select: (opts: Record<string, string>) => opts.ios ?? opts.default,
   },
+  Linking: {
+    openURL: vi.fn().mockResolvedValue(undefined),
+  },
 }));
 
 vi.mock("react-native-permissions", () => ({
@@ -162,6 +165,54 @@ describe("createRNPEngine — photo library normalization", () => {
       vi.mocked(check).mockResolvedValue(status);
       expect(await engine.check(Permissions.PHOTO_LIBRARY)).toBe(status);
     }
+  });
+});
+
+describe("createRNPEngine — openSettings deep-linking (iOS)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("calls generic openSettings when no permission is passed", async () => {
+    const engine = createRNPEngine();
+    await engine.openSettings();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens iOS deep-link URL for known permissions", async () => {
+    const { Linking } = await import("react-native");
+    const engine = createRNPEngine();
+
+    await engine.openSettings("ios.permission.CAMERA");
+    expect(Linking.openURL).toHaveBeenCalledWith("App-Prefs:root=Privacy&path=CAMERA");
+    expect(openSettings).not.toHaveBeenCalled();
+  });
+
+  it("opens iOS deep-link URL for location", async () => {
+    const { Linking } = await import("react-native");
+    const engine = createRNPEngine();
+
+    await engine.openSettings("ios.permission.LOCATION_WHEN_IN_USE");
+    expect(Linking.openURL).toHaveBeenCalledWith("App-Prefs:root=Privacy&path=LOCATION");
+  });
+
+  it("falls back to generic openSettings when iOS deep-link throws", async () => {
+    const { Linking } = await import("react-native");
+    vi.mocked(Linking.openURL).mockRejectedValueOnce(new Error("rejected scheme"));
+    const engine = createRNPEngine();
+
+    await engine.openSettings("camera");
+    expect(Linking.openURL).toHaveBeenCalled();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to generic openSettings for unmapped permissions", async () => {
+    const { Linking } = await import("react-native");
+    const engine = createRNPEngine();
+
+    await engine.openSettings("notifications");
+    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(openSettings).toHaveBeenCalledTimes(1);
   });
 });
 

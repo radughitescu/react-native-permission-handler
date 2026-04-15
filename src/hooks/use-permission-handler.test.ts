@@ -287,6 +287,19 @@ describe("usePermissionHandler", () => {
     expect(engine.request).not.toHaveBeenCalled();
   });
 
+  it("openSettings passes the hook's permission string to engine.openSettings", async () => {
+    vi.mocked(engine.check).mockResolvedValue("blocked");
+    const { result } = renderHook(() => usePermissionHandler(baseConfig({ permission: "camera" })));
+    await act(async () => {});
+    expect(result.current.state).toBe("blockedPrompt");
+
+    await act(async () => {
+      result.current.openSettings();
+    });
+
+    expect(engine.openSettings).toHaveBeenCalledWith("camera");
+  });
+
   it("requestFullAccess calls engine.requestFullAccess and re-checks state", async () => {
     const mockRequestFullAccess = vi.fn().mockResolvedValue("granted");
     const checkMock = vi

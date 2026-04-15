@@ -4,7 +4,9 @@ import type { ExpoPermissionModule } from "./expo";
 vi.mock("react-native", () => ({
   Linking: {
     openSettings: vi.fn().mockResolvedValue(undefined),
+    openURL: vi.fn().mockResolvedValue(undefined),
   },
+  Platform: { OS: "ios" },
 }));
 
 import { Linking } from "react-native";
@@ -111,11 +113,40 @@ describe("createExpoEngine", () => {
   });
 
   describe("openSettings", () => {
-    it("calls Linking.openSettings()", async () => {
+    it("calls Linking.openSettings() when no permission is passed", async () => {
       const engine = createExpoEngine({ permissions: {} });
 
       await engine.openSettings();
 
+      expect(Linking.openSettings).toHaveBeenCalled();
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    });
+
+    it("deep-links to iOS sub-page when a known permission is passed", async () => {
+      const engine = createExpoEngine({ permissions: {} });
+
+      await engine.openSettings("camera");
+
+      expect(Linking.openURL).toHaveBeenCalledWith("App-Prefs:root=Privacy&path=CAMERA");
+      expect(Linking.openSettings).not.toHaveBeenCalled();
+    });
+
+    it("falls back to generic openSettings when iOS openURL rejects", async () => {
+      vi.mocked(Linking.openURL).mockRejectedValueOnce(new Error("rejected"));
+      const engine = createExpoEngine({ permissions: {} });
+
+      await engine.openSettings("camera");
+
+      expect(Linking.openURL).toHaveBeenCalled();
+      expect(Linking.openSettings).toHaveBeenCalled();
+    });
+
+    it("falls back to generic openSettings for unmapped permissions", async () => {
+      const engine = createExpoEngine({ permissions: {} });
+
+      await engine.openSettings("notifications");
+
+      expect(Linking.openURL).not.toHaveBeenCalled();
       expect(Linking.openSettings).toHaveBeenCalled();
     });
   });

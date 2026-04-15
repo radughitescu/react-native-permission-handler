@@ -10,7 +10,7 @@ zero native code.
 interface PermissionEngine {
   check(permission: string): Promise<PermissionStatus>;
   request(permission: string): Promise<PermissionStatus>;
-  openSettings(): Promise<void>;
+  openSettings(permission?: string): Promise<void>;
   requestFullAccess?(permission: string): Promise<PermissionStatus>;
 }
 
@@ -21,10 +21,37 @@ An engine is responsible for:
 
 - Mapping its backend's native status values to the library's `PermissionStatus`.
 - Routing special cases like notifications to the correct API (e.g., `checkNotifications` on RNP).
-- Opening the correct settings screen for the platform.
+- Opening the correct settings screen for the platform. On iOS, the optional `permission`
+  parameter enables best-effort deep-linking into the per-permission Settings sub-page; engines
+  fall back to generic Settings if the deep-link fails.
 - Optionally, implementing `requestFullAccess` for the iOS 14+ photo-library upgrade flow. Hooks
   call this via `PermissionHandlerResult.requestFullAccess()` and throw a clear error if it is not
   implemented.
+
+### iOS Settings deep-linking
+
+When `openSettings(permission)` is called with a permission identifier, the RNP and Expo engines
+build an iOS `App-Prefs:root=Privacy&path=<PATH>` URL and attempt to open it. The mapping is
+substring-based and accepts RNP constants, Expo keys, and plain strings:
+
+| Input (case-insensitive, substring match)                | iOS Settings path |
+|----------------------------------------------------------|-------------------|
+| `camera`                                                  | `CAMERA` |
+| `microphone` / `record_audio`                             | `MICROPHONE` |
+| `photo` / `mediaLibrary` / `read_media_*`                 | `PHOTOS` |
+| `location` (including foreground/background variants)     | `LOCATION` |
+| `contacts`                                                | `CONTACTS` |
+| `calendar`                                                | `CALENDARS` |
+| `reminders`                                               | `REMINDERS` |
+| `motion`                                                  | `MOTION` |
+| `bluetooth`                                               | `BLUETOOTH` |
+| anything else (notifications, tracking, etc.)             | *fall back to generic Settings* |
+
+The `App-Prefs:` URL scheme is unofficial — iOS may reject it on some versions. Every deep-link
+attempt is wrapped in try/catch, so a failed `openURL` falls through to the generic
+`openSettings()` path without throwing. Treat the deep-link as a best-effort UX enhancement, not
+a guarantee. On Android, the `permission` parameter is ignored because RNP's `openSettings()`
+already lands on the app-specific permissions page.
 
 ## Engine resolution order
 

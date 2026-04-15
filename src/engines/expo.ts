@@ -1,5 +1,6 @@
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 import type { PermissionEngine, PermissionStatus } from "../types";
+import { iosSettingsUrl } from "./ios-settings-links";
 
 type ExpoPermissionResponse = { status: string; canAskAgain: boolean };
 
@@ -227,7 +228,18 @@ export function createExpoEngine(config?: ExpoEngineConfig): PermissionEngine {
       return mapExpoStatus(await request());
     },
 
-    async openSettings(): Promise<void> {
+    async openSettings(permission?: string): Promise<void> {
+      if (Platform.OS === "ios" && permission) {
+        const url = iosSettingsUrl(permission);
+        if (url) {
+          try {
+            await Linking.openURL(url);
+            return;
+          } catch {
+            // Fall through to generic Settings.
+          }
+        }
+      }
       await Linking.openSettings();
     },
   };

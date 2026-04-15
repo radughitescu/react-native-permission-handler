@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import {
   PERMISSIONS,
   type Permission,
@@ -9,6 +9,7 @@ import {
   requestNotifications,
 } from "react-native-permissions";
 import type { PermissionEngine, PermissionStatus } from "../types";
+import { iosSettingsUrl } from "./ios-settings-links";
 import { normalizeAndroidStatus } from "./rnp-normalization";
 
 function p(ios: string, android: string | { below33: string; from33: string }): string {
@@ -294,7 +295,19 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
       return normalized;
     },
 
-    async openSettings(): Promise<void> {
+    async openSettings(permission?: string): Promise<void> {
+      if (Platform.OS === "ios" && permission) {
+        const url = iosSettingsUrl(permission);
+        if (url) {
+          try {
+            await Linking.openURL(url);
+            return;
+          } catch {
+            // Fall through to generic Settings. iOS may reject the
+            // unofficial App-Prefs: scheme — this is a best-effort path.
+          }
+        }
+      }
       await openSettings();
     },
   };

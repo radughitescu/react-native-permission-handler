@@ -8,6 +8,6 @@ export function createNoopEngine(defaultStatus: PermissionStatus = "granted"): P
     async request(): Promise<PermissionStatus> {
       return defaultStatus;
     },
-    async openSettings(): Promise<void> {},
+    async openSettings(_permission?: string): Promise<void> {},
   };
 }

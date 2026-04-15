@@ -141,12 +141,12 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     });
     waitingForSettings.current = true;
     try {
-      await engine.openSettings();
+      await engine.openSettings(permission);
     } catch {
       waitingForSettings.current = false;
       setFlowState("blockedPrompt");
     }
-  }, [engine, logger]);
+  }, [engine, logger, permission]);
 
   const dismissBlocked = useCallback(() => {
     setFlowState((s) => {

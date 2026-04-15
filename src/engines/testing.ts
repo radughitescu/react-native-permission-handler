@@ -2,7 +2,10 @@ import type { PermissionEngine, PermissionStatus } from "../types";
 
 export interface TestingEngine extends PermissionEngine {
   setStatus(permission: string, status: PermissionStatus): void;
-  getRequestHistory(): Array<{ permission: string; method: "check" | "request" }>;
+  getRequestHistory(): Array<{
+    permission: string;
+    method: "check" | "request" | "openSettings";
+  }>;
   reset(): void;
 }
 
@@ -29,7 +32,10 @@ export function createTestingEngine(
   const { autoGrantUnset = false } = options;
   const initial = { ...initialStatuses };
   let statuses: Record<string, PermissionStatus> = { ...initial };
-  let history: Array<{ permission: string; method: "check" | "request" }> = [];
+  let history: Array<{
+    permission: string;
+    method: "check" | "request" | "openSettings";
+  }> = [];
 
   return {
     async check(permission: string): Promise<PermissionStatus> {
@@ -42,7 +48,9 @@ export function createTestingEngine(
       return statuses[permission] ?? (autoGrantUnset ? "granted" : "denied");
     },
 
-    async openSettings(): Promise<void> {},
+    async openSettings(permission?: string): Promise<void> {
+      history.push({ permission: permission ?? "", method: "openSettings" });
+    },
 
     setStatus(permission: string, status: PermissionStatus): void {
       statuses[permission] = status;

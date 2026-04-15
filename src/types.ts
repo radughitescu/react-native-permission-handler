@@ -11,7 +11,15 @@ export type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "u
 export interface PermissionEngine {
   check(permission: string): Promise<PermissionStatus>;
   request(permission: string): Promise<PermissionStatus>;
-  openSettings(): Promise<void>;
+  /**
+   * Open the app's Settings screen. When a permission identifier is passed,
+   * engines may attempt to deep-link into the corresponding Settings sub-page
+   * (iOS only — via the unofficial `App-Prefs:` URL scheme, with fallback to
+   * generic Settings if the deep-link fails). Android's RNP `openSettings`
+   * already lands on the app-specific permissions page, so the parameter is
+   * ignored there.
+   */
+  openSettings(permission?: string): Promise<void>;
   requestFullAccess?(permission: string): Promise<PermissionStatus>;
 }
 

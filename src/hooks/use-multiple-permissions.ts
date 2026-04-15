@@ -270,19 +270,21 @@ export function useMultiplePermissions(
     [findEntry, updateStatus, advanceToNext],
   );
 
-  // Per-permission action: open settings
+  // Per-permission action: open settings (deep-links to the permission's
+  // sub-page on iOS when the engine supports it, falls back to generic).
   const handleOpenSettings = useCallback(
     async (key: string) => {
+      const entry = findEntry(key);
       updateStatus(key, "openingSettings");
       waitingForSettings.current = key;
       try {
-        await engine.openSettings();
+        await engine.openSettings(entry?.permission);
       } catch {
         waitingForSettings.current = null;
         updateStatus(key, "blockedPrompt");
       }
     },
-    [engine, updateStatus],
+    [engine, updateStatus, findEntry],
   );
 
   // Recheck a specific permission after returning from settings
