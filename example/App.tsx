@@ -10,11 +10,13 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBoundary } from "./demos/ErrorBoundary";
 
-type Demo = "hook" | "gate" | "multi" | null;
+type Demo = "hook" | "gate" | "multi" | "foreground" | "location-bundle" | null;
 
 const HookDemo = React.lazy(() => import("./demos/HookDemo"));
 const GateDemo = React.lazy(() => import("./demos/GateDemo"));
 const MultiDemo = React.lazy(() => import("./demos/MultiDemo"));
+const ForegroundRecheckDemo = React.lazy(() => import("./demos/ForegroundRecheckDemo"));
+const LocationBundleDemo = React.lazy(() => import("./demos/LocationBundleDemo"));
 
 export default function App() {
   const [demo, setDemo] = useState<Demo>(null);
@@ -43,6 +45,18 @@ export default function App() {
               <Text style={styles.menuBtnTitle}>useMultiplePermissions</Text>
               <Text style={styles.menuBtnDesc}>Camera + Mic (sequential)</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuBtn} onPress={() => setDemo("foreground")}>
+              <Text style={styles.menuBtnTitle}>recheckOnForeground</Text>
+              <Text style={styles.menuBtnDesc}>v0.7.0 — auto re-check on app resume</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuBtn} onPress={() => setDemo("location-bundle")}>
+              <Text style={styles.menuBtnTitle}>LOCATION_BACKGROUND bundle</Text>
+              <Text style={styles.menuBtnDesc}>
+                v0.7.0 — platform-aware (iOS: 1 entry, Android: 2)
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -57,6 +71,8 @@ export default function App() {
                 {demo === "hook" && <HookDemo />}
                 {demo === "gate" && <GateDemo />}
                 {demo === "multi" && <MultiDemo />}
+                {demo === "foreground" && <ForegroundRecheckDemo />}
+                {demo === "location-bundle" && <LocationBundleDemo />}
               </Suspense>
             </ErrorBoundary>
           </>
