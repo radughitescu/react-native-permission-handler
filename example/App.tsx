@@ -10,13 +10,23 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBoundary } from "./demos/ErrorBoundary";
 
-type Demo = "hook" | "gate" | "multi" | "foreground" | "location-bundle" | null;
+type Demo =
+  | "hook"
+  | "gate"
+  | "multi"
+  | "foreground"
+  | "location-bundle"
+  | "refresh"
+  | "hook-ui"
+  | null;
 
 const HookDemo = React.lazy(() => import("./demos/HookDemo"));
 const GateDemo = React.lazy(() => import("./demos/GateDemo"));
 const MultiDemo = React.lazy(() => import("./demos/MultiDemo"));
 const ForegroundRecheckDemo = React.lazy(() => import("./demos/ForegroundRecheckDemo"));
 const LocationBundleDemo = React.lazy(() => import("./demos/LocationBundleDemo"));
+const RefreshDemo = React.lazy(() => import("./demos/RefreshDemo"));
+const HookUIDemo = React.lazy(() => import("./demos/HookUIDemo"));
 
 export default function App() {
   const [demo, setDemo] = useState<Demo>(null);
@@ -57,6 +67,20 @@ export default function App() {
                 v0.7.0 — platform-aware (iOS: 1 entry, Android: 2)
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuBtn} onPress={() => setDemo("refresh")}>
+              <Text style={styles.menuBtnTitle}>refresh() primitive</Text>
+              <Text style={styles.menuBtnDesc}>
+                v0.8.0 — force engine.request() bypassing check()
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuBtn} onPress={() => setDemo("hook-ui")}>
+              <Text style={styles.menuBtnTitle}>Hook render props + handler.ui</Text>
+              <Text style={styles.menuBtnDesc}>
+                v0.8.0 — imperative flows without PermissionGate
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -73,6 +97,8 @@ export default function App() {
                 {demo === "multi" && <MultiDemo />}
                 {demo === "foreground" && <ForegroundRecheckDemo />}
                 {demo === "location-bundle" && <LocationBundleDemo />}
+                {demo === "refresh" && <RefreshDemo />}
+                {demo === "hook-ui" && <HookUIDemo />}
               </Suspense>
             </ErrorBoundary>
           </>
