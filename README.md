@@ -195,6 +195,9 @@ Drop-in solutions to real problems. See [docs/recipes/](./docs/recipes/README.md
 
 **iOS:**
 
+- Before shipping to the App Store, make sure your app declares a `PrivacyInfo.xcprivacy` at the
+  target level. See the [iOS Privacy Manifest guide](./docs/guides/ios-privacy-manifest.md) for a
+  boilerplate template and the full list of permission usage-description keys.
 - The system permission dialog only shows **once** per permission, ever. Once denied via the
   system dialog, there is no programmatic path back — only Settings. Always show a pre-prompt
   first to warm the user up.
