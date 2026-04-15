@@ -434,6 +434,56 @@ describe("usePermissionHandler", () => {
     await expect(result.current.requestFullAccess()).rejects.toThrow(/requestFullAccess/);
   });
 
+  describe("engine metadata surface", () => {
+    it("exposes empty metadata when the engine does not implement getMetadata", async () => {
+      vi.mocked(engine.check).mockResolvedValue("granted");
+      const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+      await act(async () => {});
+
+      expect(result.current.metadata).toEqual({});
+    });
+
+    it("exposes metadata from engine.getMetadata() on the result", async () => {
+      const engineWithMetadata: PermissionEngine = {
+        check: vi.fn().mockResolvedValue("granted"),
+        request: vi.fn().mockResolvedValue("granted"),
+        openSettings: vi.fn().mockResolvedValue(undefined),
+        getMetadata: vi.fn(() => ({ locationAccuracy: "full" as const })),
+      };
+
+      const { result } = renderHook(() =>
+        usePermissionHandler(baseConfig({ engine: engineWithMetadata })),
+      );
+      await act(async () => {});
+
+      expect(result.current.metadata).toEqual({ locationAccuracy: "full" });
+      expect(engineWithMetadata.getMetadata).toHaveBeenCalled();
+    });
+
+    it("reflects updated metadata after a recheck", async () => {
+      let accuracy: "full" | "reduced" = "reduced";
+      const engineWithMetadata: PermissionEngine = {
+        check: vi.fn().mockResolvedValue("granted"),
+        request: vi.fn().mockResolvedValue("granted"),
+        openSettings: vi.fn().mockResolvedValue(undefined),
+        getMetadata: vi.fn(() => ({ locationAccuracy: accuracy })),
+      };
+
+      const { result } = renderHook(() =>
+        usePermissionHandler(baseConfig({ engine: engineWithMetadata })),
+      );
+      await act(async () => {});
+      expect(result.current.metadata).toEqual({ locationAccuracy: "reduced" });
+
+      accuracy = "full";
+      await act(async () => {
+        result.current.check();
+      });
+
+      expect(result.current.metadata).toEqual({ locationAccuracy: "full" });
+    });
+  });
+
   describe("hook render props (ui)", () => {
     it("ui is null when no render props are configured", async () => {
       vi.mocked(engine.check).mockResolvedValue("denied");

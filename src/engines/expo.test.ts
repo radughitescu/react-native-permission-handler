@@ -208,6 +208,28 @@ describe("createExpoEngine", () => {
       expect(engine.getLastLocationAccuracy()).toBe("reduced");
     });
 
+    it("getMetadata returns empty object before any location call", () => {
+      const engine = createExpoEngine({ permissions: {} });
+      expect(engine.getMetadata?.()).toEqual({});
+    });
+
+    it("getMetadata returns locationAccuracy after a location check", async () => {
+      const locationModule = {
+        get: vi.fn().mockResolvedValue({
+          status: "granted",
+          canAskAgain: true,
+          ios: { accuracy: "reduced" },
+        }),
+        request: vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true }),
+      };
+      const engine = createExpoEngine({
+        permissions: { locationForeground: locationModule },
+      });
+
+      await engine.check("locationForeground");
+      expect(engine.getMetadata?.()).toEqual({ locationAccuracy: "reduced" });
+    });
+
     it("does not overwrite location accuracy from non-location permissions", async () => {
       const locationModule = {
         get: vi.fn().mockResolvedValue({

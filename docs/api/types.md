@@ -17,6 +17,27 @@ type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavaila
 | `blocked` | Permanently denied. Only Settings can fix it. |
 | `unavailable` | The device doesn't support this feature. Terminal state. |
 
+## `PermissionMetadata`
+
+Engine-specific metadata captured alongside the `PermissionStatus`. Exposed via
+[`PermissionHandlerResult.metadata`](./use-permission-handler.md#permissionhandlerresult). Fields
+are optional and engine-dependent — not every engine populates every field, and the object is
+always present (empty when there's nothing to report) so consumers don't have to null-check the
+top-level field.
+
+```ts
+interface PermissionMetadata {
+  locationAccuracy?: "full" | "reduced";
+}
+```
+
+| Field | Populated by | Meaning |
+|-------|--------------|---------|
+| `locationAccuracy` | Expo engine (SDK 55+) | iOS 14+ Core Location authorization level captured from the most recent `check`/`request` on a location permission. `"full"` = precise location, `"reduced"` = approximate (the user toggled off "Precise Location" in the system prompt). Not populated by the RNP engine. |
+
+The shape is intentionally tight — new fields are added only when there is a concrete engine +
+use case that needs them. Do not treat it as an open-ended bag of strings.
+
 ## `PermissionFlowState`
 
 The 12 states of the state machine driving every hook.

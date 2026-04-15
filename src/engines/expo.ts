@@ -1,5 +1,5 @@
 import { Linking, Platform } from "react-native";
-import type { PermissionEngine, PermissionStatus } from "../types";
+import type { PermissionEngine, PermissionMetadata, PermissionStatus } from "../types";
 import { iosSettingsUrl } from "./ios-settings-links";
 
 /**
@@ -273,6 +273,10 @@ export function createExpoEngine(config?: ExpoEngineConfig): ExpoEngine {
 
     getLastLocationAccuracy(): LocationAccuracy | null {
       return lastLocationAccuracy;
+    },
+
+    getMetadata(): PermissionMetadata {
+      return lastLocationAccuracy ? { locationAccuracy: lastLocationAccuracy } : {};
     },
 
     async openSettings(permission?: string): Promise<void> {

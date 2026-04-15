@@ -13,6 +13,28 @@
 export type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
 
 /**
+ * Engine-specific metadata captured alongside the `PermissionStatus`.
+ *
+ * Fields are optional and engine-dependent — not every engine populates
+ * every field. For example, the Expo engine fills `locationAccuracy` on
+ * iOS 14+ after a location permission call; the RNP engine currently
+ * populates nothing.
+ *
+ * The shape is intentionally tight: a new field is only added when there
+ * is a concrete engine + use case that needs it. Do not treat this as an
+ * open-ended bag of strings.
+ */
+export interface PermissionMetadata {
+  /**
+   * iOS 14+ Core Location accuracy authorization level captured from the
+   * most recent `check` or `request` on a location permission. Only the
+   * Expo engine populates this (Expo SDK 55+ surfaces the field in its
+   * location permission response).
+   */
+  locationAccuracy?: "full" | "reduced";
+}
+
+/**
  * The pluggable permission engine interface.
  * Implement this to use a custom permissions backend.
  */
@@ -29,6 +51,13 @@ export interface PermissionEngine {
    */
   openSettings(permission?: string): Promise<void>;
   requestFullAccess?(permission: string): Promise<PermissionStatus>;
+  /**
+   * Return the current engine-specific metadata snapshot. Optional —
+   * engines that have nothing to report simply don't implement this.
+   * The hook calls it on every render and exposes the result via
+   * `PermissionHandlerResult.metadata`.
+   */
+  getMetadata?(): PermissionMetadata;
 }
 
 /**
@@ -199,6 +228,14 @@ export interface PermissionHandlerResult {
    * Returns the new `PermissionStatus` after the request completes.
    */
   refresh: () => Promise<PermissionStatus>;
+  /**
+   * Engine-specific metadata captured alongside the current native status.
+   * Populated when the resolved engine implements `getMetadata()`. Always
+   * present on the result (even when empty) so consumers don't have to
+   * null-check the top-level field. See `PermissionMetadata` for the
+   * available fields.
+   */
+  metadata: PermissionMetadata;
   /**
    * Computed React node that renders the config's `renderPrePrompt` or
    * `renderBlockedPrompt` function for the current state, or `null` when the

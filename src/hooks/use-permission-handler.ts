@@ -9,6 +9,7 @@ import type {
   PermissionFlowState,
   PermissionHandlerConfig,
   PermissionHandlerResult,
+  PermissionMetadata,
   PermissionStatus,
 } from "../types";
 
@@ -312,6 +313,13 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     return () => subscription.remove();
   }, [recheckAfterSettings, recheckOnForeground, checkPermission]);
 
+  // Engine-specific metadata snapshot. Optional engine method — returns
+  // empty object when the resolved engine has nothing to report. Read on
+  // every render; the engine is expected to cache internally so this is
+  // cheap. State updates (check/request/refresh) trigger re-renders, which
+  // in turn re-read the latest metadata without any synchronization work.
+  const metadata: PermissionMetadata = engine.getMetadata ? engine.getMetadata() : {};
+
   // Compute the hook-level UI node for the current state. Returns null when
   // the state does not match a configured render prop, or when the relevant
   // prompt config is missing. This lets imperative flows use render-prop
@@ -349,6 +357,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     reset,
     requestFullAccess,
     refresh,
+    metadata,
     ui,
   };
 }
