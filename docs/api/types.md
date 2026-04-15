@@ -12,7 +12,7 @@ type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavaila
 | Value | Meaning |
 |-------|---------|
 | `granted` | Permission is fully granted. Show the protected content. |
-| `limited` | iOS 14+ partial grant (photo library "Selected Photos"). Feature works, but upgrade flow is available via `requestFullAccess()`. |
+| `limited` | iOS 14+ partial grant. Reliably emitted for the iOS photo library ("Selected Photos"); feature works, upgrade flow is available via `requestFullAccess()`. **iOS 18+ caveat:** Apple added a conceptually similar limited-contacts mode, but whether engines return `limited` for contacts on iOS 18 is RNP/Expo-dependent. If you're shipping limited-contacts UX, test on a real iOS 18 device first — the state machine and `isLimited` helper handle it correctly when the engine emits it, but neither RNP nor Expo guarantees emission at the time of v0.8.0. |
 | `denied` | Not granted but still requestable — system dialog can still be shown. |
 | `blocked` | Permanently denied. Only Settings can fix it. |
 | `unavailable` | The device doesn't support this feature. Terminal state. |

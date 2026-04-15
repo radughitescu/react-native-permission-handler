@@ -1,6 +1,14 @@
 /**
  * Permission status values owned by this library.
  * Engines must map their native statuses to these values.
+ *
+ * The `limited` status is currently emitted by engines only for the iOS
+ * photo library (iOS 14+, "Selected Photos"). iOS 18+ added a conceptually
+ * similar limited-contacts mode, but whether engines return `limited` for
+ * contacts is RNP/Expo-dependent — test on an iOS 18 device before relying
+ * on it. If your engine returns `limited` for a permission the library
+ * hasn't seen before, the state machine and the `isLimited` helper will
+ * still handle it correctly; you just need to document the scope.
  */
 export type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
 
