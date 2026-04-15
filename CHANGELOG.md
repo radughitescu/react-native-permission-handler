@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.2 — 2026-04-15
+
+Documentation-only patch. No runtime changes.
+
+### Documentation
+
+- Added recipe: **Imperative camera access** — button-triggered permission flows inside a mid-form
+  context (KYC, ID capture, profile photos) that must survive denial without unmounting form
+  state. Uses `usePermissionHandler` directly with `renderPrePrompt`/`renderBlockedPrompt` render
+  props and the `ui` field as a sibling of the form.
+- Added recipe: **Location accuracy UI** — render precise vs approximate map and ETA from
+  `result.metadata.locationAccuracy` on iOS 14+ (Expo engine), paired with `recheckOnForeground`
+  so the UI recovers when the user toggles Precise Location in Settings.
+
 ## 0.8.1 — 2026-04-15
 
 Small follow-up patch. Surfaces the Expo location-accuracy metadata on the hook result that

@@ -13,6 +13,10 @@ React Native app. Cross-links point to the [API reference](../api/README.md) for
   `skipPrePrompt: "android"`.
 - [Speech recognition](./speech-recognition.md) — iOS needs both `MICROPHONE` and
   `SPEECH_RECOGNITION`; Android needs only `RECORD_AUDIO`. Platform-aware sequential flow.
+- [Imperative camera access](./imperative-camera-access.md) — button-triggered camera permission
+  inside a mid-form flow (KYC, profile photo, ID capture) without unmounting form state.
+- [Location accuracy UI](./location-accuracy.md) — render precise-vs-approximate map and ETA
+  from `result.metadata.locationAccuracy` on iOS 14+ (Expo engine).
 
 ## Platform-specific bundles
 

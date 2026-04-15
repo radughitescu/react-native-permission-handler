@@ -53,6 +53,7 @@ export default defineConfig({
             text: "Basics",
             collapsed: false,
             items: [
+              { text: "Imperative Camera Access", link: "/recipes/imperative-camera-access" },
               { text: "Onboarding Wall", link: "/recipes/onboarding-wall" },
               { text: "Re-check on Foreground", link: "/recipes/recheck-on-foreground" },
               { text: "Stale Permission State", link: "/recipes/stale-permission-state" },
@@ -66,6 +67,7 @@ export default defineConfig({
               { text: "Background Location", link: "/recipes/background-location" },
               { text: "BLE Device Pairing", link: "/recipes/ble-device-pairing" },
               { text: "Limited Photo Upgrade", link: "/recipes/limited-photo-upgrade" },
+              { text: "Location Accuracy UI", link: "/recipes/location-accuracy" },
               { text: "Speech Recognition", link: "/recipes/speech-recognition" },
               { text: "Voice Note Composer", link: "/recipes/voice-note-composer" },
             ],
