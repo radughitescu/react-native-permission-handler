@@ -30,6 +30,11 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const waitingForSettings = useRef(false);
   const generation = useRef(0);
   const appStateRef = useRef(AppState.currentState);
+  // Mirror of flowState for synchronous reads inside callbacks. Updating on
+  // every render keeps it in lockstep without re-creating callbacks on every
+  // state change.
+  const flowStateRef = useRef(flowState);
+  flowStateRef.current = flowState;
 
   const {
     permission,
@@ -191,6 +196,66 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     return status;
   }, [engine, permission, logger, onGrant]);
 
+  const refresh = useCallback(async (): Promise<PermissionStatus> => {
+    if (isRequesting.current) {
+      return nativeStatus ?? "denied";
+    }
+    const gen = generation.current;
+
+    // Read current state via ref to avoid the strict-mode double-invoke
+    // hazard of capturing from inside a setFlowState updater.
+    const currentState = flowStateRef.current;
+    const next = transition(currentState, { type: "REFRESH" });
+    if (next !== "requesting" || currentState === "requesting") {
+      logger.info("refresh: no-op from current state");
+      return nativeStatus ?? "denied";
+    }
+
+    logger.transition(currentState, next, "REFRESH");
+    setFlowState(next);
+    isRequesting.current = true;
+    try {
+      const requestPromise = engine.request(permission);
+      const status = requestTimeout
+        ? await withTimeout(requestPromise, requestTimeout, permission)
+        : await requestPromise;
+      if (generation.current !== gen) return status;
+      setNativeStatus(status);
+      setFlowState((s) => {
+        const next = transition(s, { type: "REQUEST_RESULT", status });
+        logger.transition(s, next, `REQUEST_RESULT:${status}`);
+        if ((next === "granted" || next === "limited") && s !== "granted" && s !== "limited")
+          onGrant?.();
+        if (next === "denied") onDeny?.();
+        if (next === "blockedPrompt") onBlock?.();
+        return next;
+      });
+      return status;
+    } catch (err) {
+      if (generation.current !== gen) return "denied";
+      if (err instanceof PermissionTimeoutError) {
+        logger.info(`refresh timed out after ${requestTimeout}ms`);
+        onTimeout?.();
+        setFlowState("blockedPrompt");
+        return "blocked";
+      }
+      setFlowState("denied");
+      return "denied";
+    } finally {
+      isRequesting.current = false;
+    }
+  }, [
+    engine,
+    permission,
+    requestTimeout,
+    onTimeout,
+    logger,
+    onGrant,
+    onDeny,
+    onBlock,
+    nativeStatus,
+  ]);
+
   const recheckAfterSettings = useCallback(async () => {
     const gen = generation.current;
     setFlowState((s) => {
@@ -260,5 +325,6 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     openSettings: goToSettings,
     reset,
     requestFullAccess,
+    refresh,
   };
 }

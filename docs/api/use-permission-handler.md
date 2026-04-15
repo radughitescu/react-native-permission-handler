@@ -53,6 +53,7 @@ function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandle
 | `openSettings()` | `() => void` | Open the app settings screen. The hook will re-check automatically on return. |
 | `reset()` | `() => void` | Reset to `idle`. Cancels any in-flight work via a generation counter. |
 | `requestFullAccess()` | `() => Promise<PermissionStatus>` | Upgrade from `limited` to `granted` via `engine.requestFullAccess()`. **Only supported on the Expo engine today** (via `MediaLibrary.presentPermissionsPickerAsync`). The RNP engine throws because `react-native-permissions` does not expose a JS binding for iOS `presentLimitedLibraryPicker` yet — tracked as future work. See [limited-photo recipe](../recipes/limited-photo-upgrade.md). |
+| `refresh()` | `() => Promise<PermissionStatus>` | Force a fresh `engine.request()` bypassing `check()`. Use when the native status reports `granted` but the permission is functionally broken (e.g. iOS 18 camera/photo corrupted-grant after a system update). From terminal states (`granted`, `limited`, `denied`, `blocked`, `unavailable`) transitions to `requesting` and re-runs the native dialog. From non-terminal states it's a no-op that returns the current native status unchanged. |
 
 ## Minimal example
 

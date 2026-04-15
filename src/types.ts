@@ -45,7 +45,8 @@ export type PermissionFlowEvent =
   | { type: "RESET" }
   | { type: "OPEN_SETTINGS" }
   | { type: "SETTINGS_RETURN" }
-  | { type: "RECHECK_RESULT"; status: PermissionStatus };
+  | { type: "RECHECK_RESULT"; status: PermissionStatus }
+  | { type: "REFRESH" };
 
 /**
  * Configuration for the pre-prompt modal.
@@ -129,6 +130,21 @@ export interface PermissionHandlerResult {
    * if the current engine does not implement `requestFullAccess`.
    */
   requestFullAccess: () => Promise<PermissionStatus>;
+  /**
+   * Force a fresh permission request, bypassing `check()`. Use this when the
+   * native status reports `granted` but the permission is functionally broken
+   * (e.g. iOS 18 camera/photo corrupted-grant bug after a system update) and
+   * you need to trigger native re-consent explicitly.
+   *
+   * Unlike `check()`, `refresh()` goes straight to `engine.request()` so the
+   * native layer re-evaluates. From terminal states (`granted`, `limited`,
+   * `denied`, `blocked`, `unavailable`) the hook transitions to `requesting`.
+   * From non-terminal states (mid-flow) `refresh()` is a no-op that returns
+   * the current native status unchanged.
+   *
+   * Returns the new `PermissionStatus` after the request completes.
+   */
+  refresh: () => Promise<PermissionStatus>;
 }
 
 /**

@@ -316,6 +316,93 @@ describe("usePermissionHandler", () => {
     expect(result.current.state).toBe("granted");
   });
 
+  describe("refresh", () => {
+    it("calls engine.request from granted state and keeps granted when request succeeds", async () => {
+      vi.mocked(engine.check).mockResolvedValue("granted");
+      vi.mocked(engine.request).mockResolvedValue("granted");
+
+      const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+      await act(async () => {});
+      expect(result.current.state).toBe("granted");
+      expect(engine.request).not.toHaveBeenCalled();
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(engine.request).toHaveBeenCalledWith("camera");
+      expect(engine.request).toHaveBeenCalledTimes(1);
+      expect(result.current.state).toBe("granted");
+    });
+
+    it("transitions from granted to denied when refresh request returns denied", async () => {
+      vi.mocked(engine.check).mockResolvedValue("granted");
+      vi.mocked(engine.request).mockResolvedValue("denied");
+      const onDeny = vi.fn();
+
+      const { result } = renderHook(() => usePermissionHandler(baseConfig({ onDeny })));
+      await act(async () => {});
+      expect(result.current.state).toBe("granted");
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(result.current.state).toBe("denied");
+      expect(onDeny).toHaveBeenCalled();
+    });
+
+    it("is a no-op from idle (autoCheck disabled, no prior state)", async () => {
+      vi.mocked(engine.check).mockResolvedValue("denied");
+      vi.mocked(engine.request).mockResolvedValue("granted");
+
+      const { result } = renderHook(() => usePermissionHandler(baseConfig({ autoCheck: false })));
+      await act(async () => {});
+      expect(result.current.state).toBe("idle");
+
+      let returned: PermissionStatus | undefined;
+      await act(async () => {
+        returned = await result.current.refresh();
+      });
+
+      expect(engine.request).not.toHaveBeenCalled();
+      expect(result.current.state).toBe("idle");
+      expect(returned).toBe("denied");
+    });
+
+    it("calls engine.request (not engine.check) even when state is granted", async () => {
+      vi.mocked(engine.check).mockResolvedValue("granted");
+      vi.mocked(engine.request).mockResolvedValue("granted");
+
+      const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+      await act(async () => {});
+      vi.mocked(engine.check).mockClear();
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(engine.check).not.toHaveBeenCalled();
+      expect(engine.request).toHaveBeenCalledTimes(1);
+    });
+
+    it("refresh from blocked state routes through request and transitions correctly", async () => {
+      vi.mocked(engine.check).mockResolvedValue("unavailable");
+      vi.mocked(engine.request).mockResolvedValue("granted");
+
+      const { result } = renderHook(() => usePermissionHandler(baseConfig()));
+      await act(async () => {});
+      expect(result.current.state).toBe("unavailable");
+
+      await act(async () => {
+        await result.current.refresh();
+      });
+
+      expect(engine.request).toHaveBeenCalledWith("camera");
+      expect(result.current.state).toBe("granted");
+    });
+  });
+
   it("requestFullAccess throws when engine does not implement it", async () => {
     engine = {
       check: vi.fn().mockResolvedValue("limited"),

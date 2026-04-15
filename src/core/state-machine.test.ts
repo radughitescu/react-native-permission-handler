@@ -214,10 +214,62 @@ describe("transition — terminal states allow re-checking", () => {
 });
 
 describe("transition — blocked state", () => {
-  it("stays blocked on any event", () => {
+  it("stays blocked on unrelated events", () => {
     expect(transition("blocked", { type: "CHECK" })).toBe("blocked");
     expect(transition("blocked", { type: "OPEN_SETTINGS" })).toBe("blocked");
     expect(transition("blocked", { type: "PRE_PROMPT_CONFIRM" })).toBe("blocked");
+  });
+
+  it("blocked → requesting on REFRESH (corrupted-grant recovery)", () => {
+    expect(transition("blocked", { type: "REFRESH" })).toBe("requesting");
+  });
+});
+
+describe("transition — REFRESH event", () => {
+  it("granted → requesting on REFRESH", () => {
+    expect(transition("granted", { type: "REFRESH" })).toBe("requesting");
+  });
+
+  it("limited → requesting on REFRESH", () => {
+    expect(transition("limited", { type: "REFRESH" })).toBe("requesting");
+  });
+
+  it("denied → requesting on REFRESH", () => {
+    expect(transition("denied", { type: "REFRESH" })).toBe("requesting");
+  });
+
+  it("unavailable → requesting on REFRESH", () => {
+    expect(transition("unavailable", { type: "REFRESH" })).toBe("requesting");
+  });
+
+  it("idle is a no-op on REFRESH (developer should call check() first)", () => {
+    expect(transition("idle", { type: "REFRESH" })).toBe("idle");
+  });
+
+  it("checking is a no-op on REFRESH (already in flight)", () => {
+    expect(transition("checking", { type: "REFRESH" })).toBe("checking");
+  });
+
+  it("requesting is a no-op on REFRESH (already in flight)", () => {
+    expect(transition("requesting", { type: "REFRESH" })).toBe("requesting");
+  });
+
+  it("prePrompt is a no-op on REFRESH (user hasn't decided yet)", () => {
+    expect(transition("prePrompt", { type: "REFRESH" })).toBe("prePrompt");
+  });
+
+  it("blockedPrompt is a no-op on REFRESH (recovery UI is visible)", () => {
+    expect(transition("blockedPrompt", { type: "REFRESH" })).toBe("blockedPrompt");
+  });
+
+  it("openingSettings is a no-op on REFRESH", () => {
+    expect(transition("openingSettings", { type: "REFRESH" })).toBe("openingSettings");
+  });
+
+  it("recheckingAfterSettings is a no-op on REFRESH", () => {
+    expect(transition("recheckingAfterSettings", { type: "REFRESH" })).toBe(
+      "recheckingAfterSettings",
+    );
   });
 });
 
@@ -281,6 +333,9 @@ describe("transition — robustness: no state throws on any event", () => {
     { type: "RECHECK_RESULT", status: "denied" },
     { type: "RECHECK_RESULT", status: "blocked" },
     { type: "RECHECK_RESULT", status: "limited" },
+    { type: "RECHECK_RESULT", status: "unavailable" },
+    { type: "REQUEST_RESULT", status: "unavailable" },
+    { type: "REFRESH" },
   ];
 
   for (const state of allStates) {

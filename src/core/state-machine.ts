@@ -94,9 +94,13 @@ export function transition(
     case "denied":
     case "unavailable":
       if (event.type === "CHECK") return "checking";
+      // REFRESH bypasses check() and forces a fresh request. Used for
+      // corrupted-grant recovery (e.g. iOS 18 functional camera loss).
+      if (event.type === "REFRESH") return "requesting";
       return state;
 
     case "blocked":
+      if (event.type === "REFRESH") return "requesting";
       return state;
 
     default:
