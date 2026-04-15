@@ -74,7 +74,7 @@ Platform-aware presets that resolve to `string[]` at runtime. Designed to be pas
 import { Permissions } from "react-native-permission-handler/rnp";
 
 Permissions.BUNDLES.BLUETOOTH;           // iOS: [BLUETOOTH]; Android 12+: [SCAN, CONNECT]; else [FINE_LOCATION]
-Permissions.BUNDLES.LOCATION_BACKGROUND; // [LOCATION_WHEN_IN_USE, LOCATION_ALWAYS]
+Permissions.BUNDLES.LOCATION_BACKGROUND; // iOS: [LOCATION_WHEN_IN_USE]; Android: [ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION]
 Permissions.BUNDLES.CALENDARS_WRITE_ONLY;// iOS 17+: dedicated write-only; else full calendar
 ```
 
@@ -127,7 +127,7 @@ Expo status mapping:
 | `"denied"` | `true` | `"denied"` |
 | `"denied"` | `false` | `"blocked"` |
 
-## `createTestingEngine(initialStatuses?)`
+## `createTestingEngine(initialStatuses?, options?)`
 
 A controllable engine for unit tests. Records every `check` / `request` call and lets you rewrite
 statuses mid-test.
@@ -141,6 +141,24 @@ const engine = createTestingEngine({ "ios.permission.CAMERA": "denied" });
 engine.setStatus("ios.permission.CAMERA", "granted");
 engine.getRequestHistory();
 engine.reset();
+```
+
+**Defaults for unseeded permissions.** Both `check()` and `request()` return `"denied"` for
+permissions you have not explicitly seeded via `initialStatuses` or `setStatus`. This keeps
+test behavior symmetric and predictable — a permission you forgot to set up won't silently
+grant on `request()`.
+
+**`options.autoGrantUnset`** — pass `{ autoGrantUnset: true }` to restore the happy-path
+shortcut where `request()` returns `"granted"` for unseeded permissions (while `check()` still
+returns `"denied"`). Useful when you want to test grant flows without enumerating every
+permission up front.
+
+```ts
+// Symmetric default: both check and request return "denied" for unseeded permissions.
+const strict = createTestingEngine({ camera: "denied" });
+
+// Happy-path shortcut: request() auto-grants anything not seeded.
+const lenient = createTestingEngine({}, { autoGrantUnset: true });
 ```
 
 See the [testing recipe](../recipes/testing-with-testing-engine.md) for a full example.

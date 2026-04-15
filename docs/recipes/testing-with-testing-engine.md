@@ -9,7 +9,7 @@ controllable in-memory status map and a request history for assertions.
 
 ## What you'll use
 
-- [`createTestingEngine`](../api/engines.md#createtestingengineinitialstatuses) — from
+- [`createTestingEngine`](../api/engines.md#createtestingengineinitialstatuses-options) — from
   `react-native-permission-handler/testing`
 - Pass the engine via the `engine` prop on your hook or component. No global state, no mocks.
 
@@ -103,8 +103,22 @@ const engine = createTestingEngine({
 });
 ```
 
-Anything not in `initialStatuses` defaults to `"denied"` for `check()` and `"granted"` for
-`request()`, so you can start with an empty map and only seed the permissions you care about.
+Anything not in `initialStatuses` defaults to `"denied"` for **both** `check()` and `request()`.
+Defaults are symmetric on purpose — a permission you forgot to set up won't silently grant on
+`request()` and mask a missing test setup.
+
+### Opt-in: `autoGrantUnset` for happy-path shortcuts
+
+If you want `request()` to auto-grant unseeded permissions (useful when you only care about
+testing the grant path and don't want to enumerate every permission), pass
+`{ autoGrantUnset: true }`:
+
+```ts
+const engine = createTestingEngine({}, { autoGrantUnset: true });
+
+await engine.check("camera");   // "denied" (symmetric default)
+await engine.request("camera"); // "granted" (because autoGrantUnset is on)
+```
 
 ## Using `createNoopEngine` for Storybook and web
 

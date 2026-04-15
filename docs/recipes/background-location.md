@@ -5,10 +5,13 @@ but both iOS and Android require you to request the foreground permission first 
 ask for the always/background permission. The native APIs expose both as separate permissions,
 and getting the order wrong throws a confusing OS error.
 
-**Solution.** Use `Permissions.BUNDLES.LOCATION_BACKGROUND`, which expands to
-`[LOCATION_WHEN_IN_USE, LOCATION_ALWAYS]` on both platforms, and feed it into a **sequential**
-`useMultiplePermissions` call so the user sees the foreground dialog first, then the background
-upgrade.
+**Solution.** Use `Permissions.BUNDLES.LOCATION_BACKGROUND`. On **Android** it expands to
+`[ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION]` — two independent runtime permissions that
+must be requested in order. On **iOS** it expands to just `[LOCATION_WHEN_IN_USE]` because iOS
+models Core Location as a single authorization: you request "When In Use" first, then upgrade
+to "Always" as a follow-up step on the same permission rather than as a separate request.
+Feed the bundle into a **sequential** `useMultiplePermissions` call and the flow Just Works
+on both platforms — on iOS you'll see one prompt, on Android two.
 
 ## What you'll use
 
@@ -25,27 +28,16 @@ import { Button, Text, View } from "react-native";
 import { useMultiplePermissions } from "react-native-permission-handler";
 import { Permissions } from "react-native-permission-handler/rnp";
 
-const [FOREGROUND, BACKGROUND] = Permissions.BUNDLES.LOCATION_BACKGROUND;
+// iOS: ["LOCATION_WHEN_IN_USE"] — one entry.
+// Android: ["ACCESS_FINE_LOCATION", "ACCESS_BACKGROUND_LOCATION"] — two entries.
+const LOCATION_BUNDLE = Permissions.BUNDLES.LOCATION_BACKGROUND;
 
-export function LiveTrackingSetup() {
-  const perms = useMultiplePermissions({
-    strategy: "sequential",
-    permissions: [
-      {
-        id: "location-foreground",
-        permission: FOREGROUND,
-        prePrompt: {
-          title: "Location while using the app",
-          message: "We need your location to track your run in real time.",
-        },
-        blockedPrompt: {
-          title: "Location blocked",
-          message: "Enable location access in Settings to continue.",
-        },
-      },
-      {
+const entries = LOCATION_BUNDLE.map((permission, index) => {
+  const isBackground = index === 1; // only exists on Android
+  return isBackground
+    ? {
         id: "location-background",
-        permission: BACKGROUND,
+        permission,
         prePrompt: {
           title: "Always allow location",
           message:
@@ -55,8 +47,25 @@ export function LiveTrackingSetup() {
           title: "Background location blocked",
           message: "Switch location to 'Always' in Settings for background tracking.",
         },
-      },
-    ],
+      }
+    : {
+        id: "location-foreground",
+        permission,
+        prePrompt: {
+          title: "Location while using the app",
+          message: "We need your location to track your run in real time.",
+        },
+        blockedPrompt: {
+          title: "Location blocked",
+          message: "Enable location access in Settings to continue.",
+        },
+      };
+});
+
+export function LiveTrackingSetup() {
+  const perms = useMultiplePermissions({
+    strategy: "sequential",
+    permissions: entries,
     onAllGranted: () => startTracking(),
   });
 
@@ -86,11 +95,20 @@ until the foreground entry returns `granted`. If the user denies or dismisses th
 prompt, the flow stops — tap the "Enable location" button again to resume from the beginning, or
 call `perms.resume()` to continue from the current ungranted step.
 
-## Handling partial grants
+## iOS "Always" upgrades
 
-On iOS 14+, the user can grant "When In Use" and then deny "Always" — a common scenario. Because
-each entry has its own `blockedPrompt`, the flow will surface the blocked modal for the background
-entry while keeping foreground granted. Use `perms.blockedPermissions` to show a summary row.
+On iOS, granting "When In Use" is the whole flow that this bundle can drive today. iOS does not
+model "Always" as a separately requestable permission — the system expects you to call
+`requestAlwaysAuthorization` as a second step on the already-granted permission. A dedicated
+`upgradeToAlways()` API is tracked as future work on this library. In the meantime, after the
+foreground grant you can trigger the upgrade yourself via `react-native-permissions` or your
+native bridge.
+
+## Handling partial grants (Android)
+
+On Android, the user can grant foreground location and then deny background. Because each entry
+has its own `blockedPrompt`, the flow will surface the blocked modal for the background entry
+while keeping foreground granted. Use `perms.blockedPermissions` to show a summary row.
 
 See also:
 

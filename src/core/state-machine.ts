@@ -33,6 +33,10 @@ export function transition(
     case "prePrompt":
       if (event.type === "PRE_PROMPT_CONFIRM") return "requesting";
       if (event.type === "PRE_PROMPT_DISMISS") return "denied";
+      // CHECK from prePrompt refreshes from reality (e.g. recheckOnForeground
+      // fires while a pre-prompt is visible after the user manually toggled
+      // the permission in Settings).
+      if (event.type === "CHECK") return "checking";
       return state;
 
     case "requesting":
@@ -55,6 +59,9 @@ export function transition(
     case "blockedPrompt":
       if (event.type === "OPEN_SETTINGS") return "openingSettings";
       if (event.type === "BLOCKED_PROMPT_DISMISS") return "denied";
+      // CHECK from blockedPrompt refreshes from reality (e.g. recheckOnForeground
+      // or an external refresh while the blocked recovery UI is visible).
+      if (event.type === "CHECK") return "checking";
       return state;
 
     case "openingSettings":

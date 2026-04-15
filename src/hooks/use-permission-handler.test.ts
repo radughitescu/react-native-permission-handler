@@ -350,6 +350,57 @@ describe("usePermissionHandler", () => {
     expect(result.current.isDenied).toBe(true);
     expect(onDeny).toHaveBeenCalled();
   });
+
+  describe("recheckOnForeground", () => {
+    async function fireForeground() {
+      const { AppState } = await import("react-native");
+      // biome-ignore lint/suspicious/noExplicitAny: test-only cast to read mock calls
+      const calls = (AppState.addEventListener as any).mock.calls as Array<
+        [string, (s: string) => void]
+      >;
+      const listener = calls[calls.length - 1]?.[1];
+      if (!listener) throw new Error("AppState listener not registered");
+      // Simulate background→active transition
+      // biome-ignore lint/suspicious/noExplicitAny: test mutation of mocked object
+      (AppState as any).currentState = "background";
+      listener("background");
+      await act(async () => {
+        listener("active");
+      });
+      // biome-ignore lint/suspicious/noExplicitAny: test mutation of mocked object
+      (AppState as any).currentState = "active";
+    }
+
+    it("re-checks permission on foreground transition when recheckOnForeground is true", async () => {
+      vi.mocked(engine.check).mockResolvedValueOnce("denied").mockResolvedValueOnce("granted");
+      const { result } = renderHook(() =>
+        usePermissionHandler(baseConfig({ recheckOnForeground: true })),
+      );
+
+      await act(async () => {});
+      expect(engine.check).toHaveBeenCalledTimes(1);
+      expect(result.current.state).toBe("prePrompt");
+
+      await fireForeground();
+      await act(async () => {});
+
+      expect(engine.check).toHaveBeenCalledTimes(2);
+      expect(result.current.state).toBe("granted");
+    });
+
+    it("does NOT re-check on foreground transition when recheckOnForeground is false", async () => {
+      vi.mocked(engine.check).mockResolvedValue("denied");
+      renderHook(() => usePermissionHandler(baseConfig({ recheckOnForeground: false })));
+
+      await act(async () => {});
+      expect(engine.check).toHaveBeenCalledTimes(1);
+
+      await fireForeground();
+      await act(async () => {});
+
+      expect(engine.check).toHaveBeenCalledTimes(1);
+    });
+  });
 });
 
 describe("Android 16 hang recovery (integration)", () => {

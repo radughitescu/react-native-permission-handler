@@ -108,9 +108,23 @@ or branch directly on `state` if you want exclusive behavior.
 ## Engine requirements
 
 `requestFullAccess()` delegates to `engine.requestFullAccess()`, which is optional on the
-`PermissionEngine` interface. The RNP adapter implements it via the native Limited Photo Picker.
-If you pass a custom engine that does not implement `requestFullAccess`, calling the hook method
-throws a clear error — switch engines or add the method on your custom adapter.
+`PermissionEngine` interface.
+
+- **Expo engine** (`createExpoEngine`) — supported end-to-end via
+  `MediaLibrary.presentPermissionsPickerAsync`.
+- **RNP engine** (`createRNPEngine`) — **not yet implemented.** `react-native-permissions` does
+  not currently expose a JS binding for iOS `PHPhotoLibrary.presentLimitedLibraryPicker(from:)`,
+  and this package ships no native code of its own. Calling `handler.requestFullAccess()` on the
+  RNP engine throws a clear error at runtime. The `limited` state detection and `renderLimited`
+  branch still work on RNP (those only depend on `check()`) — only the upgrade button is gated.
+  Tracked as future work: ship a tiny optional native module or contribute the binding upstream.
+- **Custom engine** — implement `requestFullAccess` on your adapter (e.g. wrap your own native
+  shim around the iOS 15+ limited picker API).
+
+**Practical takeaway:** if you need the limited → full upgrade flow and you're on bare React
+Native, use `createExpoEngine` (it works outside Expo Go too, via the Expo modules) or provide a
+custom engine. Otherwise surface the `renderLimited` UI and point users to Settings via
+`openSettings()` as a fallback.
 
 See the [engines reference](../api/engines.md) for details.
 

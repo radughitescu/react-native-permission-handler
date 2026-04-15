@@ -39,7 +39,7 @@ import { Permissions } from "react-native-permission-handler/rnp";
 | `renderPrePrompt` | `(props) => ReactNode` | Replace the default pre-prompt modal with your own UI. |
 | `renderBlockedPrompt` | `(props) => ReactNode` | Replace the default blocked modal. |
 | `renderDenied` | `(props) => ReactNode` | Render something after the user explicitly dismisses the pre-prompt. Receives `{ check }` so you can offer a "try again" affordance. |
-| `renderLimited` | `(result: PermissionHandlerResult) => ReactNode` | Render custom UI while the permission is in the `limited` state (iOS 14+ partial photo access). Receives the full handler so you can call `requestFullAccess()` from inside the rendered UI. When omitted, the gate falls through to `children` (backward compatible with v0.6.0). |
+| `renderLimited` | `(result: PermissionHandlerResult) => ReactNode` | Render custom UI while the permission is in the `limited` state (iOS 14+ partial photo access). Receives the full handler so you can call `requestFullAccess()` from inside the rendered UI. **Note:** `handler.requestFullAccess()` is only supported on the Expo engine today — the RNP engine throws (see [`usePermissionHandler` reference](./use-permission-handler.md#permissionhandlerresult)). When omitted, the gate falls through to `children` (backward compatible with v0.6.0). |
 
 ### Render prop payloads
 

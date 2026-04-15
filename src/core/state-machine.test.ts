@@ -55,8 +55,11 @@ describe("transition — prePrompt", () => {
     expect(transition("prePrompt", { type: "PRE_PROMPT_DISMISS" })).toBe("denied");
   });
 
+  it("re-enters checking on CHECK (supports recheckOnForeground mid-prePrompt)", () => {
+    expect(transition("prePrompt", { type: "CHECK" })).toBe("checking");
+  });
+
   it("ignores unrelated events", () => {
-    expect(transition("prePrompt", { type: "CHECK" })).toBe("prePrompt");
     expect(transition("prePrompt", { type: "OPEN_SETTINGS" })).toBe("prePrompt");
   });
 });
@@ -95,8 +98,11 @@ describe("transition — blockedPrompt", () => {
     expect(transition("blockedPrompt", { type: "BLOCKED_PROMPT_DISMISS" })).toBe("denied");
   });
 
+  it("re-enters checking on CHECK (supports recheckOnForeground mid-blockedPrompt)", () => {
+    expect(transition("blockedPrompt", { type: "CHECK" })).toBe("checking");
+  });
+
   it("ignores unrelated events", () => {
-    expect(transition("blockedPrompt", { type: "CHECK" })).toBe("blockedPrompt");
     expect(transition("blockedPrompt", { type: "PRE_PROMPT_CONFIRM" })).toBe("blockedPrompt");
   });
 });

@@ -2,14 +2,20 @@ import { describe, expect, it } from "vitest";
 import { createTestingEngine } from "./testing";
 
 describe("createTestingEngine", () => {
-  it("check returns 'denied' by default", async () => {
+  it("check returns 'denied' by default for unseeded permissions", async () => {
     const engine = createTestingEngine();
     expect(await engine.check("camera")).toBe("denied");
   });
 
-  it("request returns 'granted' by default", async () => {
+  it("request returns 'denied' by default for unseeded permissions (symmetric)", async () => {
     const engine = createTestingEngine();
+    expect(await engine.request("camera")).toBe("denied");
+  });
+
+  it("request returns 'granted' for unseeded permissions when autoGrantUnset is true", async () => {
+    const engine = createTestingEngine({}, { autoGrantUnset: true });
     expect(await engine.request("camera")).toBe("granted");
+    expect(await engine.check("camera")).toBe("denied");
   });
 
   it("openSettings resolves without error", async () => {
@@ -63,9 +69,9 @@ describe("createTestingEngine", () => {
     expect(await engine.check("camera")).toBe("denied");
   });
 
-  it("returns defaults for permissions not in initial config", async () => {
+  it("returns symmetric 'denied' defaults for permissions not in initial config", async () => {
     const engine = createTestingEngine({ camera: "granted" });
     expect(await engine.check("microphone")).toBe("denied");
-    expect(await engine.request("microphone")).toBe("granted");
+    expect(await engine.request("microphone")).toBe("denied");
   });
 });

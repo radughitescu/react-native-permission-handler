@@ -70,10 +70,15 @@ export function useMultiplePermissions(
   const statusesRef = useRef(statuses);
   statusesRef.current = statuses;
 
-  const allGranted = permissions.every((entry) => {
-    const s = statuses[permissionKey(entry)];
-    return s === "granted" || s === "limited";
-  });
+  // Note: false on empty arrays (not vacuously true). Callers that build
+  // permissions dynamically — e.g. `[needsCam && "camera"].filter(Boolean)` —
+  // should not render protected UI without any permission actually granted.
+  const allGranted =
+    permissions.length > 0 &&
+    permissions.every((entry) => {
+      const s = statuses[permissionKey(entry)];
+      return s === "granted" || s === "limited";
+    });
 
   const blockedPermissions = useMemo(
     () =>

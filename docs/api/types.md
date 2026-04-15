@@ -134,7 +134,7 @@ permissions. Designed to be spread into `useMultiplePermissions` entries.
 | Bundle | Resolves to |
 |--------|-------------|
 | `BUNDLES.BLUETOOTH` | iOS: `[BLUETOOTH]`. Android 12+: `[BLUETOOTH_SCAN, BLUETOOTH_CONNECT]`. Android 11 and below: `[ACCESS_FINE_LOCATION]`. |
-| `BUNDLES.LOCATION_BACKGROUND` | `[LOCATION_WHEN_IN_USE, LOCATION_ALWAYS]` — foreground must be granted first for background to even be requestable on both platforms. |
+| `BUNDLES.LOCATION_BACKGROUND` | iOS: `[LOCATION_WHEN_IN_USE]` — iOS models Core Location as a single authorization, and upgrading to "Always" is a follow-up step on the already-granted permission rather than a separate requestable permission (tracked as future `upgradeToAlways` API). Android: `[ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION]` — foreground must be granted first. |
 | `BUNDLES.CALENDARS_WRITE_ONLY` | iOS 17+: dedicated `CALENDARS_WRITE_ONLY`. Older iOS: full `CALENDARS` (since write-only is not separable). Android: `WRITE_CALENDAR`. |
 
 ```tsx

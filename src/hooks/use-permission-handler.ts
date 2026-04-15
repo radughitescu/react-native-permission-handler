@@ -34,6 +34,7 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const {
     permission,
     autoCheck = true,
+    recheckOnForeground = false,
     onTimeout,
     debug,
     onGrant,
@@ -163,7 +164,10 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
   const requestFullAccess = useCallback(async (): Promise<PermissionStatus> => {
     if (!engine.requestFullAccess) {
       throw new Error(
-        "[react-native-permission-handler] The current engine does not implement requestFullAccess(). Switch to an engine that supports it (e.g., the Expo engine's presentPermissionsPickerAsync) or provide a custom engine.",
+        "[react-native-permission-handler] The current engine does not implement requestFullAccess(). " +
+          "The RNP engine cannot yet call iOS `presentLimitedLibraryPicker` because " +
+          "react-native-permissions does not expose a JS binding for it (tracked as future work). " +
+          "Use the Expo engine (which supports MediaLibrary.presentPermissionsPickerAsync) or provide a custom engine with a native shim.",
       );
     }
     const gen = generation.current;
@@ -219,21 +223,25 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     }
   }, []);
 
-  // AppState listener for settings return
+  // AppState listener: settings-return recheck (always), plus optional
+  // foreground recheck on every background→active when recheckOnForeground
+  // is enabled.
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (nextAppState) => {
-      if (
-        appStateRef.current.match(/inactive|background/) &&
-        nextAppState === "active" &&
-        waitingForSettings.current
-      ) {
-        waitingForSettings.current = false;
-        recheckAfterSettings();
+      const cameForeground =
+        appStateRef.current.match(/inactive|background/) && nextAppState === "active";
+      if (cameForeground) {
+        if (waitingForSettings.current) {
+          waitingForSettings.current = false;
+          recheckAfterSettings();
+        } else if (recheckOnForeground) {
+          checkPermission();
+        }
       }
       appStateRef.current = nextAppState;
     });
     return () => subscription.remove();
-  }, [recheckAfterSettings]);
+  }, [recheckAfterSettings, recheckOnForeground, checkPermission]);
 
   return {
     state: flowState,

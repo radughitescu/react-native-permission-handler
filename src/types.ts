@@ -176,6 +176,12 @@ export interface MultiPermissionHandler {
  */
 export interface MultiplePermissionsResult {
   statuses: Record<string, PermissionFlowState>;
+  /**
+   * True only when the permission list is non-empty and every entry is
+   * granted or limited. Empty lists intentionally return false so that
+   * dynamically-built permission arrays never render protected UI
+   * without actually granting any permission.
+   */
   allGranted: boolean;
   handlers: Record<string, MultiPermissionHandler>;
   activePermission: string | null;

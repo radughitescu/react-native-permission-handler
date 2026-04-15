@@ -165,7 +165,10 @@ An engine is the pluggable adapter between this library and the actual permissio
   adapter with opt-in Android and photo-library status normalization.
 - `createExpoEngine()` — Expo modules adapter. Zero config, auto-discovers installed
   `expo-camera`, `expo-location`, `expo-notifications`, etc.
-- `createTestingEngine(initialStatuses?)` — controllable engine for unit tests.
+- `createTestingEngine(initialStatuses?, { autoGrantUnset? })` — controllable engine for unit
+  tests. Defaults are symmetric: both `check()` and `request()` return `"denied"` for unseeded
+  permissions. Pass `{ autoGrantUnset: true }` for a happy-path shortcut that auto-grants on
+  `request()`.
 - `createNoopEngine(defaultStatus?)` — always-granted stub for web builds and Storybook.
 - Any object implementing `PermissionEngine` — roll your own.
 

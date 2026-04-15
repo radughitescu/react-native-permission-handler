@@ -24,7 +24,7 @@ function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandle
 | `prePrompt` | `PrePromptConfig` | Optional since v0.7.0. Title/message for the default pre-prompt modal. Omit when you render your own UI from `state === "prePrompt"`. |
 | `blockedPrompt` | `BlockedPromptConfig` | Optional since v0.7.0. Title/message for the default blocked modal. Omit when rendering your own. |
 | `autoCheck` | `boolean` | Default `true`. When `false`, nothing happens until you call `check()`. |
-| `recheckOnForeground` | `boolean` | Default `false`. Only relevant for custom flows — the Settings return path already re-checks automatically. |
+| `recheckOnForeground` | `boolean` | Default `false`. When `true`, re-checks the permission on every `background → active` AppState transition, not only after `openSettings()`. Useful when users may toggle permissions in system Settings without going through your blocked-prompt flow. The Settings-return recheck still takes precedence when it applies. |
 | `requestTimeout` | `number` | Request timeout in ms. On Android 16 (API 36+) a 5 s default is applied automatically — set an explicit value to override. |
 | `onTimeout` | `() => void` | Fires when the request hits `requestTimeout`. The hook transitions to `blockedPrompt`. |
 | `skipPrePrompt` | `boolean \| "android"` | Skip the pre-prompt and jump straight from `checking` to `requesting` on denied status. `"android"` is the safe choice — Android allows two dialog attempts; iOS is one-shot. See [voice-note recipe](../recipes/voice-note-composer.md). |
@@ -52,7 +52,7 @@ function usePermissionHandler(config: PermissionHandlerConfig): PermissionHandle
 | `dismissBlocked()` | `() => void` | Dismiss the blocked prompt — useful for non-critical permissions. |
 | `openSettings()` | `() => void` | Open the app settings screen. The hook will re-check automatically on return. |
 | `reset()` | `() => void` | Reset to `idle`. Cancels any in-flight work via a generation counter. |
-| `requestFullAccess()` | `() => Promise<PermissionStatus>` | Upgrade from `limited` to `granted` via `engine.requestFullAccess()`. Throws if the engine does not implement it. See [limited-photo recipe](../recipes/limited-photo-upgrade.md). |
+| `requestFullAccess()` | `() => Promise<PermissionStatus>` | Upgrade from `limited` to `granted` via `engine.requestFullAccess()`. **Only supported on the Expo engine today** (via `MediaLibrary.presentPermissionsPickerAsync`). The RNP engine throws because `react-native-permissions` does not expose a JS binding for iOS `presentLimitedLibraryPicker` yet — tracked as future work. See [limited-photo recipe](../recipes/limited-photo-upgrade.md). |
 
 ## Minimal example
 

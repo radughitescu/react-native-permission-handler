@@ -46,7 +46,7 @@ function useMultiplePermissions(config: MultiplePermissionsConfig): MultiplePerm
 | Field | Type | Description |
 |-------|------|-------------|
 | `statuses` | `Record<string, PermissionFlowState>` | Keyed by `id` or permission string. |
-| `allGranted` | `boolean` | `true` when every entry is `granted` or `limited`. |
+| `allGranted` | `boolean` | `true` when the `permissions` array is non-empty **and** every entry is `granted` or `limited`. Intentionally `false` on empty arrays (not vacuously `true`) so dynamically-built permission lists never render protected UI without actually granting anything. |
 | `handlers` | `Record<string, MultiPermissionHandler>` | Per-entry `{ state, request, dismiss, dismissBlocked, openSettings }`. Use these to drive per-row UI. |
 | `activePermission` | `string \| null` | The current key being prompted. Non-null only while a flow is in progress. |
 | `blockedPermissions` | `string[]` | Keys currently in a blocked state. Useful for showing a "fix these in Settings" summary. |

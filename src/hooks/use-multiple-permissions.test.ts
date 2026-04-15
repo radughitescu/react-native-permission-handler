@@ -91,6 +91,12 @@ describe("useMultiplePermissions", () => {
     expect(Object.values(result.current.statuses)).toEqual(["idle", "idle"]);
   });
 
+  it("allGranted is false when permissions array is empty (not vacuously true)", () => {
+    const { result } = renderHook(() => useMultiplePermissions(baseConfig({ permissions: [] })));
+
+    expect(result.current.allGranted).toBe(false);
+  });
+
   it("auto-checks all permissions on mount", async () => {
     vi.mocked(engine.check).mockResolvedValueOnce("granted").mockResolvedValueOnce("denied");
 

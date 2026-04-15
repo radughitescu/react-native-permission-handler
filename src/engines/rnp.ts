@@ -135,6 +135,23 @@ function bluetoothBundle(): string[] {
   return [];
 }
 
+function locationBackgroundBundle(): string[] {
+  // On iOS there is only one Core Location authorization — you request
+  // `WhenInUse` first, then later upgrade to `Always` via a separate API call
+  // on the already-granted permission. Surfacing both as independent bundle
+  // entries would produce a confusing second prompt (or a no-op) when run
+  // through useMultiplePermissions. The foreground permission is all that
+  // can be requested up front; upgrading to Always is a follow-up step that
+  // belongs to a future `upgradeToAlways` API.
+  if (Platform.OS === "ios") {
+    return [permissionsBase.LOCATION_WHEN_IN_USE];
+  }
+  // Android models foreground and background location as two distinct
+  // runtime permissions (ACCESS_FINE_LOCATION, then ACCESS_BACKGROUND_LOCATION
+  // on API 29+). Both are legitimately requestable in sequence.
+  return [permissionsBase.LOCATION_WHEN_IN_USE, permissionsBase.LOCATION_ALWAYS];
+}
+
 function calendarsWriteOnlyBundle(): string[] {
   if (Platform.OS === "ios") {
     // iOS 17+ gained a dedicated write-only calendar permission. The constant
@@ -158,10 +175,7 @@ function calendarsWriteOnlyBundle(): string[] {
  */
 const BUNDLES = {
   BLUETOOTH: bluetoothBundle(),
-  LOCATION_BACKGROUND: [
-    permissionsBase.LOCATION_WHEN_IN_USE,
-    permissionsBase.LOCATION_ALWAYS,
-  ] as string[],
+  LOCATION_BACKGROUND: locationBackgroundBundle(),
   CALENDARS_WRITE_ONLY: calendarsWriteOnlyBundle(),
 } as const;
 
@@ -188,6 +202,32 @@ export interface RNPEngineOptions {
   normalizeAndroid?: boolean;
 }
 
+/**
+ * Creates a PermissionEngine backed by `react-native-permissions`.
+ *
+ * ### Known limitation: `requestFullAccess` is not implemented
+ *
+ * This engine does **not** implement `engine.requestFullAccess()`, which
+ * powers the iOS 14+ limited photo library upgrade flow (the native
+ * `PHPhotoLibrary.shared().presentLimitedLibraryPicker(from:)` picker).
+ * `react-native-permissions` does not currently expose a JS binding for this
+ * API, and this package has no native code of its own. As a result:
+ *
+ * - `PermissionGate`'s `renderLimited` prop still renders correctly (the
+ *   `limited` state is derived from `check()`), but any button inside it
+ *   that calls `handler.requestFullAccess()` will throw at runtime on RNP.
+ * - Only the Expo engine (`createExpoEngine`) supports `requestFullAccess`
+ *   end-to-end today, via `MediaLibrary.presentPermissionsPickerAsync()`.
+ *
+ * **Workarounds:**
+ * - Use the Expo engine if your app is on Expo modules.
+ * - Provide a custom engine that wraps your own native shim around
+ *   `presentLimitedLibraryPicker`.
+ *
+ * **Future work:** ship a tiny optional native module (or contribute the
+ * binding upstream to `react-native-permissions`) so the RNP engine can
+ * route `requestFullAccess` through it on iOS.
+ */
 export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngine {
   const photoPermissions = new Set<string>([
     Permissions.PHOTO_LIBRARY,

@@ -451,11 +451,44 @@ describe("Permissions.BUNDLES", () => {
     expect(bundle).toEqual(["ios.permission.BLUETOOTH"]);
   });
 
-  it("LOCATION_BACKGROUND returns [LOCATION_WHEN_IN_USE, LOCATION_ALWAYS]", () => {
-    expect(Permissions.BUNDLES.LOCATION_BACKGROUND).toEqual([
-      Permissions.LOCATION_WHEN_IN_USE,
-      Permissions.LOCATION_ALWAYS,
+  it("LOCATION_BACKGROUND on iOS returns only [LOCATION_WHEN_IN_USE] (single authorization model)", () => {
+    // Top-of-file react-native mock sets OS="ios", so this exercises the iOS branch.
+    expect(Permissions.BUNDLES.LOCATION_BACKGROUND).toEqual([Permissions.LOCATION_WHEN_IN_USE]);
+  });
+
+  it("LOCATION_BACKGROUND on Android returns [ACCESS_FINE_LOCATION, ACCESS_BACKGROUND_LOCATION]", async () => {
+    vi.resetModules();
+    vi.doMock("react-native", () => ({
+      Platform: {
+        OS: "android",
+        Version: 33,
+        select: (opts: Record<string, string>) => opts.android ?? opts.default,
+      },
+    }));
+    vi.doMock("react-native-permissions", () => ({
+      check: vi.fn(),
+      request: vi.fn(),
+      openSettings: vi.fn(),
+      checkNotifications: vi.fn(),
+      requestNotifications: vi.fn(),
+      PERMISSIONS: {
+        IOS: {},
+        ANDROID: {
+          ACCESS_FINE_LOCATION: "android.permission.ACCESS_FINE_LOCATION",
+          BLUETOOTH_SCAN: "android.permission.BLUETOOTH_SCAN",
+          BLUETOOTH_CONNECT: "android.permission.BLUETOOTH_CONNECT",
+          WRITE_CALENDAR: "android.permission.WRITE_CALENDAR",
+        },
+      },
+    }));
+    const { Permissions: AndroidPermissions } = await import("./rnp");
+    expect(AndroidPermissions.BUNDLES.LOCATION_BACKGROUND).toEqual([
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_BACKGROUND_LOCATION",
     ]);
+    vi.doUnmock("react-native");
+    vi.doUnmock("react-native-permissions");
+    vi.resetModules();
   });
 
   it("CALENDARS_WRITE_ONLY returns a single-entry string[]", () => {
