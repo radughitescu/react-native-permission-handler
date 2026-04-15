@@ -219,6 +219,31 @@ Drop-in solutions to real problems. See [docs/recipes/](./docs/recipes/README.md
 `checkNotifications`/`requestNotifications`. For Expo, map `"notifications"` to `expo-notifications`
 in the engine config (or rely on auto-discovery).
 
+## What this library doesn't cover
+
+The library wraps *device permission prompts* — the OS-level `CAMERA`, `PHOTO_LIBRARY`, `LOCATION`,
+etc. dialogs. It deliberately does **not** cover the following adjacent problems:
+
+- **HealthKit / Google Fit / Apple Health** — these use per-data-type authorization with a
+  fundamentally different model (no "denied" signal is returned to the app by design). Use
+  [`react-native-health`](https://github.com/agencyenterprise/react-native-health),
+  [`@kingstinct/react-native-healthkit`](https://github.com/kingstinct/react-native-healthkit),
+  or native modules.
+- **OAuth and social login scopes** — Google Sign-In, Facebook Login, "Sign in with Apple," etc.
+  These are auth grants, not device permissions. Use
+  [`@react-native-google-signin/google-signin`](https://github.com/react-native-google-signin/google-signin)
+  or the provider-specific SDK.
+- **IAP / StoreKit entitlements** — use [`react-native-iap`](https://github.com/hyochan/react-native-iap).
+- **Push notification provider tokens (APNs / FCM registration)** — this library handles the
+  user-facing *notification permission*. Device-token registration and routing belong to
+  [`@react-native-firebase/messaging`](https://rnfirebase.io/) or similar.
+- **HomeKit, Local Network, NFC, Contacts groups, Gamekit, CarPlay** — domain-specific permission
+  models. Some map cleanly via a custom engine; most are better served by dedicated libraries.
+
+If you're unsure whether your use case fits, a good test: does your permission prompt show a
+system-standard "Allow / Don't Allow" dialog? If yes, the library probably fits. If it's a custom
+auth flow or a per-scope consent screen, look elsewhere.
+
 ## What's new in v0.7.0
 
 - **`requestFullAccess()`** on the hook result — upgrade from limited → granted without leaving
