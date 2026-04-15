@@ -99,10 +99,50 @@ call `perms.resume()` to continue from the current ungranted step.
 
 On iOS, granting "When In Use" is the whole flow that this bundle can drive today. iOS does not
 model "Always" as a separately requestable permission — the system expects you to call
-`requestAlwaysAuthorization` as a second step on the already-granted permission. A dedicated
-`upgradeToAlways()` API is tracked as future work on this library. In the meantime, after the
-foreground grant you can trigger the upgrade yourself via `react-native-permissions` or your
-native bridge.
+`requestAlwaysAuthorization` as a second step on the already-granted permission, and **the OS
+only shows the "Always Allow" dialog automatically the second time a background location event
+fires in-app,** not on demand from your UI. There is no in-app API to force the prompt.
+
+The practical recovery path is to send the user to Settings and let them flip "When Using the
+App" to "Always." As of v0.8.0, `engine.openSettings("location")` deep-links into the iOS
+Location Services sub-page, which makes this one tap away from the app. The library
+automatically passes the hook's permission identifier to the engine, so calling
+`handler.openSettings()` from a button handler does the right thing on both platforms.
+
+```tsx
+function AlwaysAllowUpgradeButton() {
+  const location = usePermissionHandler({
+    permission: Permissions.LOCATION_WHEN_IN_USE,
+    prePrompt: {
+      title: "Location while using the app",
+      message: "We need foreground location first.",
+    },
+    blockedPrompt: {
+      title: "Location blocked",
+      message: "Enable location in Settings.",
+    },
+  });
+
+  if (!location.isGranted) return null;
+
+  return (
+    <View>
+      <Text>Tracking works while the app is open. For background tracking,</Text>
+      <Text>switch location access to "Always" in Settings.</Text>
+      <Button title="Open Location settings" onPress={location.openSettings} />
+    </View>
+  );
+}
+```
+
+On Android, `openSettings` already lands on the app-specific permissions page (the `permission`
+parameter is ignored), and `Permissions.BUNDLES.LOCATION_BACKGROUND` handles the second prompt
+via the `ACCESS_BACKGROUND_LOCATION` entry. The iOS branch above is the asymmetry that the
+bundle cannot hide.
+
+A dedicated `upgradeToAlways()` helper that triggers the iOS system re-prompt in-app is tracked
+as future work (pending upstream `react-native-permissions` exposing the relevant API). For now,
+the Settings deep-link is the recommended pattern.
 
 ## Handling partial grants (Android)
 
