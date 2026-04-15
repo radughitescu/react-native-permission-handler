@@ -2,7 +2,35 @@ import { Linking, Platform } from "react-native";
 import type { PermissionEngine, PermissionStatus } from "../types";
 import { iosSettingsUrl } from "./ios-settings-links";
 
-type ExpoPermissionResponse = { status: string; canAskAgain: boolean };
+/**
+ * iOS 14+ Core Location accuracy authorization level, as surfaced by
+ * `expo-location` starting with Expo SDK 55.
+ */
+export type LocationAccuracy = "full" | "reduced";
+
+type ExpoPermissionResponse = {
+  status: string;
+  canAskAgain: boolean;
+  /** iOS 14+ details block returned by expo-location (SDK 55+). */
+  ios?: { accuracy?: LocationAccuracy };
+};
+
+/**
+ * The Expo engine extends `PermissionEngine` with metadata readers for
+ * Expo-specific response fields that don't fit the `PermissionStatus` union.
+ */
+export interface ExpoEngine extends PermissionEngine {
+  /**
+   * Returns the iOS location accuracy from the most recent `check` or
+   * `request` call on a location permission, or `null` if no location call
+   * has happened yet or the response did not include the `ios.accuracy`
+   * field. Only populated on iOS 14+ via Expo SDK 55+.
+   *
+   * Internal for v0.8.0 — not exposed on `PermissionHandlerResult` yet.
+   * Surface design for the hook-level API lives in v0.9.0 planning.
+   */
+  getLastLocationAccuracy(): LocationAccuracy | null;
+}
 
 /**
  * An Expo module with standard permission methods (getPermissionsAsync/requestPermissionsAsync).
@@ -210,22 +238,41 @@ function getDiscoveredModules(): Record<string, ExpoPermissionEntry> {
  * With config, user permissions are merged on top of discovered defaults:
  *   createExpoEngine({ permissions: { camera: { get: ..., request: ... } } })
  */
-export function createExpoEngine(config?: ExpoEngineConfig): PermissionEngine {
+export function createExpoEngine(config?: ExpoEngineConfig): ExpoEngine {
   const permissions = { ...getDiscoveredModules(), ...config?.permissions };
+  let lastLocationAccuracy: LocationAccuracy | null = null;
+
+  const locationPermissionKeys = new Set(["locationForeground", "locationBackground", "location"]);
+
+  function captureLocationAccuracy(permission: string, response: ExpoPermissionResponse): void {
+    if (!locationPermissionKeys.has(permission)) return;
+    const accuracy = response.ios?.accuracy;
+    if (accuracy === "full" || accuracy === "reduced") {
+      lastLocationAccuracy = accuracy;
+    }
+  }
 
   return {
     async check(permission: string): Promise<PermissionStatus> {
       const entry = permissions[permission];
       if (!entry) return "unavailable";
       const { get } = resolveEntry(entry);
-      return mapExpoStatus(await get());
+      const response = await get();
+      captureLocationAccuracy(permission, response);
+      return mapExpoStatus(response);
     },
 
     async request(permission: string): Promise<PermissionStatus> {
       const entry = permissions[permission];
       if (!entry) return "unavailable";
       const { request } = resolveEntry(entry);
-      return mapExpoStatus(await request());
+      const response = await request();
+      captureLocationAccuracy(permission, response);
+      return mapExpoStatus(response);
+    },
+
+    getLastLocationAccuracy(): LocationAccuracy | null {
+      return lastLocationAccuracy;
     },
 
     async openSettings(permission?: string): Promise<void> {

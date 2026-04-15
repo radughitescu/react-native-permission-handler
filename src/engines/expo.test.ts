@@ -165,6 +165,70 @@ describe("createExpoEngine", () => {
       expect(await engine.check("camera")).toBe("unavailable");
     });
 
+    it("getLastLocationAccuracy is null before any location call", () => {
+      const engine = createExpoEngine({ permissions: {} });
+      expect(engine.getLastLocationAccuracy()).toBeNull();
+    });
+
+    it("captures iOS location accuracy from expo-location response (full)", async () => {
+      const locationModule = {
+        get: vi.fn().mockResolvedValue({
+          status: "granted",
+          canAskAgain: true,
+          ios: { accuracy: "full" },
+        }),
+        request: vi.fn().mockResolvedValue({
+          status: "granted",
+          canAskAgain: true,
+          ios: { accuracy: "full" },
+        }),
+      };
+      const engine = createExpoEngine({
+        permissions: { locationForeground: locationModule },
+      });
+
+      await engine.check("locationForeground");
+      expect(engine.getLastLocationAccuracy()).toBe("full");
+    });
+
+    it("captures iOS location accuracy 'reduced' from request response", async () => {
+      const locationModule = {
+        get: vi.fn().mockResolvedValue({ status: "denied", canAskAgain: true }),
+        request: vi.fn().mockResolvedValue({
+          status: "granted",
+          canAskAgain: true,
+          ios: { accuracy: "reduced" },
+        }),
+      };
+      const engine = createExpoEngine({
+        permissions: { locationForeground: locationModule },
+      });
+
+      await engine.request("locationForeground");
+      expect(engine.getLastLocationAccuracy()).toBe("reduced");
+    });
+
+    it("does not overwrite location accuracy from non-location permissions", async () => {
+      const locationModule = {
+        get: vi.fn().mockResolvedValue({
+          status: "granted",
+          canAskAgain: true,
+          ios: { accuracy: "full" },
+        }),
+        request: vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true }),
+      };
+      const cameraModule = createMockModule();
+      const engine = createExpoEngine({
+        permissions: { locationForeground: locationModule, camera: cameraModule },
+      });
+
+      await engine.check("locationForeground");
+      expect(engine.getLastLocationAccuracy()).toBe("full");
+
+      await engine.check("camera");
+      expect(engine.getLastLocationAccuracy()).toBe("full");
+    });
+
     it("user config overrides discovered defaults", async () => {
       const customModule = createMockModule({
         getPermissionsAsync: vi.fn().mockResolvedValue({ status: "granted", canAskAgain: true }),
