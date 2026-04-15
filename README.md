@@ -5,6 +5,8 @@ foreground re-check — in one hook, one component, and a pluggable engine. Work
 [`react-native-permissions`](https://github.com/zoontek/react-native-permissions), Expo modules,
 or any custom backend.
 
+**📚 [Full documentation →](https://radughitescu.github.io/react-native-permission-handler/)**
+
 ```tsx
 import { PermissionGate } from "react-native-permission-handler";
 import { Permissions } from "react-native-permission-handler/rnp";
