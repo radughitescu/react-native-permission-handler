@@ -4,7 +4,8 @@
 
 The **Limited-Access Upgrades & Full Library Access** release. `requestFullAccess()` is now first-class across all three engines (RNP via native pickers, Expo via auto-discovered modules, testing engine for test suites). Expo engine detects iOS limited-access states from both the literal `limited` status and the `accessPrivileges: "limited"` field. New recipes for iOS 18 limited contacts and location always-allow upgrades.
 
-All changes are additive. Existing v0.8.2 code continues to work.
+Runtime behavior is additive; existing v0.8.2 code continues to work. The `ExpoEngine` and
+`TestingEngine` interfaces gained a required `requestFullAccess` member — see Changes below.
 
 ### New features
 
@@ -24,9 +25,9 @@ All changes are additive. Existing v0.8.2 code continues to work.
   `requestPermissions()` and the `accessPrivileges: "limited"` field (iOS 14+) now correctly map
   to the `limited` PermissionStatus. Enables iOS 14+ limited-access workflows on Expo.
 - **`requestFullAccess()` on testing engine** — simulated via the `TestingEngine` instance
-  option `fullAccessResult` (defaults to `"granted"`). Call history includes a `"requestFullAccess"`
-  entry (no payload). Allows test suites to simulate full-access picker flows without a native
-  environment.
+  option `fullAccessResult` (defaults to `"granted"`). Call history includes a `{ permission,
+  method: "requestFullAccess" }` entry. Allows test suites to simulate full-access picker flows
+  without a native environment.
 - **New recipes** — iOS 18 limited contacts upgrade via `requestFullAccess()` and location
   when-in-use→always upgrade via `openSettings("location")` deep-link.
 
@@ -36,14 +37,23 @@ All changes are additive. Existing v0.8.2 code continues to work.
   support the permission. Unsupported-permission errors include a hint (e.g. "photos are only
   available on the RNP engine").
 - **devDependency `react-native-permissions`** raised to `5.6.1` (peer range unchanged at
-  `>=4.0.0`). Supports iOS 18 Contacts framework `PHPhotoLibrary.presentLimitedLibraryPicker` and
-  `CNContactStore.presentContactPickerViewController()` bindings for the new pickers.
+  `>=4.0.0`). Supports the Photos framework's `PHPhotoLibrary.presentLimitedLibraryPicker`
+  (iOS 14+) and the Contacts framework's `CNContactStore`-based limited-access picker
+  (`presentContactPickerViewController()`, iOS 18+) bindings for the new pickers.
+- **`ExpoEngine` interface** — `requestFullAccess` is now a required member, matching the
+  behavior `createExpoEngine()` always provided. Only affects consumers hand-rolling an object
+  typed as `ExpoEngine`.
+- **`TestingEngine` interface** — `requestFullAccess` is now a required member, matching the
+  behavior `createTestingEngine()` always provided. Only affects consumers hand-rolling an object
+  typed as `TestingEngine`.
 
-### Non-breaking
+### Non-breaking at runtime
 
-All changes are additive. Engines that don't implement `requestFullAccess()` or limited-access
+Custom `PermissionEngine` objects that don't implement `requestFullAccess()` or limited-access
 detection continue to return a clear error or the granted status respectively. Existing code
-using `check()`, `request()`, and `openSettings()` is unaffected.
+using `check()`, `request()`, and `openSettings()` is unaffected. Consumers with objects typed
+as `ExpoEngine` or `TestingEngine` need to add a `requestFullAccess` implementation to keep
+typechecking — see Changes above.
 
 ---
 

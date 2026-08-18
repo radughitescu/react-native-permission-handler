@@ -103,24 +103,24 @@ drives the foreground half. Request "Always" as a follow-up step with a second h
 `Permissions.LOCATION_ALWAYS`, gated on `LOCATION_WHEN_IN_USE` already being granted:
 
 ```tsx
-const whenInUse = usePermissionHandler({
-  permission: Permissions.LOCATION_WHEN_IN_USE,
-  prePrompt: { title: "Location", message: "Find nearby stops." },
-});
-
-const always = usePermissionHandler({
-  permission: Permissions.LOCATION_ALWAYS,
-  prePrompt: {
-    title: "Background location",
-    message: "Keep tracking your run while the screen is off.",
-  },
-  autoCheck: false,
-  renderPrePrompt: ({ onConfirm, onCancel }) => (
-    <AlwaysUpgradeModal onAllow={onConfirm} onSkip={onCancel} />
-  ),
-});
-
 function AlwaysAllowUpgradeButton() {
+  const whenInUse = usePermissionHandler({
+    permission: Permissions.LOCATION_WHEN_IN_USE,
+    prePrompt: { title: "Location", message: "Find nearby stops." },
+  });
+
+  const always = usePermissionHandler({
+    permission: Permissions.LOCATION_ALWAYS,
+    prePrompt: {
+      title: "Background location",
+      message: "Keep tracking your run while the screen is off.",
+    },
+    autoCheck: false,
+    renderPrePrompt: ({ onConfirm, onCancel }) => (
+      <AlwaysUpgradeModal onAllow={onConfirm} onSkip={onCancel} />
+    ),
+  });
+
   if (!whenInUse.isGranted) return null;
 
   return (
@@ -133,9 +133,9 @@ function AlwaysAllowUpgradeButton() {
 }
 ```
 
-`always.check` re-checks `LOCATION_ALWAYS` through the engine; once granted, `always.ui` renders
-`renderPrePrompt`'s output and `onConfirm` fires `always.request()`, which triggers the native
-"Always" system dialog.
+`always.check` re-checks `LOCATION_ALWAYS` through the engine; when the check reports `denied`
+(still requestable), `always.ui` renders `renderPrePrompt`'s output, and `onConfirm` fires
+`always.request()`, which triggers the native "Always" system dialog.
 
 **Gotcha:** on iOS, request `LOCATION_ALWAYS` only after `LOCATION_WHEN_IN_USE` is granted —
 requesting it first fails. This flow requires `react-native-permissions` >= 5.5.3, where
