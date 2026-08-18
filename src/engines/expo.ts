@@ -30,6 +30,7 @@ export interface ExpoEngine extends PermissionEngine {
    * Surface design for the hook-level API lives in v0.9.0 planning.
    */
   getLastLocationAccuracy(): LocationAccuracy | null;
+  requestFullAccess?(permission: string): Promise<PermissionStatus>;
 }
 
 /**
@@ -56,6 +57,7 @@ export type ExpoPermissionEntry = ExpoPermissionModule | ExpoPermissionFunctions
 
 export interface ExpoEngineConfig {
   permissions?: Record<string, ExpoPermissionEntry>;
+  fullAccessPickers?: Record<string, () => Promise<void>>;
 }
 
 function resolveEntry(entry: ExpoPermissionEntry): {
@@ -232,6 +234,26 @@ function getDiscoveredModules(): Record<string, ExpoPermissionEntry> {
   return cachedDiscovery;
 }
 
+function discoverFullAccessPickers(): Record<string, () => Promise<void>> {
+  const pickers: Record<string, () => Promise<void>> = {};
+
+  const mediaLibrary = tryRequire("expo-media-library");
+  const photoPicker =
+    mediaLibrary?.presentPermissionsPicker ?? mediaLibrary?.presentPermissionsPickerAsync;
+  if (typeof photoPicker === "function") {
+    pickers.mediaLibrary = () => photoPicker();
+    pickers.imagePickerMediaLibrary = () => photoPicker();
+  }
+
+  const contacts = tryRequire("expo-contacts");
+  const contactPicker = contacts?.presentAccessPicker ?? contacts?.presentAccessPickerAsync;
+  if (typeof contactPicker === "function") {
+    pickers.contacts = () => contactPicker();
+  }
+
+  return pickers;
+}
+
 /**
  * Create an Expo permission engine.
  *
@@ -255,6 +277,11 @@ export function createExpoEngine(config?: ExpoEngineConfig): ExpoEngine {
     }
   }
 
+  const fullAccessPickers = {
+    ...discoverFullAccessPickers(),
+    ...config?.fullAccessPickers,
+  };
+
   return {
     async check(permission: string): Promise<PermissionStatus> {
       const entry = permissions[permission];
@@ -270,6 +297,22 @@ export function createExpoEngine(config?: ExpoEngineConfig): ExpoEngine {
       if (!entry) return "unavailable";
       const { request } = resolveEntry(entry);
       const response = await request();
+      captureLocationAccuracy(permission, response);
+      return mapExpoStatus(response);
+    },
+
+    async requestFullAccess(permission: string): Promise<PermissionStatus> {
+      const picker = fullAccessPickers[permission];
+      if (!picker) {
+        throw new Error(
+          `[react-native-permission-handler] requestFullAccess is not available for "${permission}" on the Expo engine. Install expo-media-library (photos, iOS 14+) or expo-contacts (contacts, iOS 18+), or pass a picker via config.fullAccessPickers.`,
+        );
+      }
+      await picker();
+      const entry = permissions[permission];
+      if (!entry) return "unavailable";
+      const { get } = resolveEntry(entry);
+      const response = await get();
       captureLocationAccuracy(permission, response);
       return mapExpoStatus(response);
     },

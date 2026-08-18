@@ -393,4 +393,46 @@ describe("createExpoEngine", () => {
       expect(await engine.check("contacts")).toBe("limited");
     });
   });
+
+  describe("createExpoEngine — requestFullAccess", () => {
+    it("invokes the configured picker and re-checks the permission", async () => {
+      const present = vi.fn().mockResolvedValue(undefined);
+      let privileges: "all" | "limited" = "limited";
+      const engine = createExpoEngine({
+        permissions: {
+          mediaLibrary: {
+            get: async () => ({
+              status: "granted",
+              canAskAgain: true,
+              accessPrivileges: privileges,
+            }),
+            request: async () => ({
+              status: "granted",
+              canAskAgain: true,
+              accessPrivileges: privileges,
+            }),
+          },
+        },
+        fullAccessPickers: {
+          mediaLibrary: async () => {
+            present();
+            privileges = "all";
+          },
+        },
+      });
+
+      const result = await engine.requestFullAccess?.("mediaLibrary");
+
+      expect(present).toHaveBeenCalled();
+      expect(result).toBe("granted");
+    });
+
+    it("rejects for permissions without a configured picker", async () => {
+      const engine = createExpoEngine({ permissions: {} });
+
+      await expect(engine.requestFullAccess?.("camera")).rejects.toThrow(
+        /not available for "camera"/,
+      );
+    });
+  });
 });
