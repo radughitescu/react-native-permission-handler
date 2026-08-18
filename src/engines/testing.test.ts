@@ -85,4 +85,28 @@ describe("createTestingEngine", () => {
     expect(await engine.check("microphone")).toBe("denied");
     expect(await engine.request("microphone")).toBe("denied");
   });
+
+  describe("requestFullAccess", () => {
+    it("upgrades the permission to granted and records history", async () => {
+      const engine = createTestingEngine({ photo: "limited" });
+
+      const result = await engine.requestFullAccess?.("photo");
+
+      expect(result).toBe("granted");
+      expect(await engine.check("photo")).toBe("granted");
+      expect(engine.getRequestHistory()).toContainEqual({
+        permission: "photo",
+        method: "requestFullAccess",
+      });
+    });
+
+    it("honors fullAccessResult for simulating a kept limited selection", async () => {
+      const engine = createTestingEngine({ photo: "limited" }, { fullAccessResult: "limited" });
+
+      const result = await engine.requestFullAccess?.("photo");
+
+      expect(result).toBe("limited");
+      expect(await engine.check("photo")).toBe("limited");
+    });
+  });
 });

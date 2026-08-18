@@ -4,7 +4,7 @@ export interface TestingEngine extends PermissionEngine {
   setStatus(permission: string, status: PermissionStatus): void;
   getRequestHistory(): Array<{
     permission: string;
-    method: "check" | "request" | "openSettings";
+    method: "check" | "request" | "openSettings" | "requestFullAccess";
   }>;
   reset(): void;
 }
@@ -23,18 +23,20 @@ export interface TestingEngineOptions {
    * Default: `false`.
    */
   autoGrantUnset?: boolean;
+
+  fullAccessResult?: PermissionStatus;
 }
 
 export function createTestingEngine(
   initialStatuses?: Record<string, PermissionStatus>,
   options: TestingEngineOptions = {},
 ): TestingEngine {
-  const { autoGrantUnset = false } = options;
+  const { autoGrantUnset = false, fullAccessResult = "granted" } = options;
   const initial = { ...initialStatuses };
   let statuses: Record<string, PermissionStatus> = { ...initial };
   let history: Array<{
     permission: string;
-    method: "check" | "request" | "openSettings";
+    method: "check" | "request" | "openSettings" | "requestFullAccess";
   }> = [];
 
   return {
@@ -50,6 +52,12 @@ export function createTestingEngine(
 
     async openSettings(permission?: string): Promise<void> {
       history.push({ permission: permission ?? "", method: "openSettings" });
+    },
+
+    async requestFullAccess(permission: string): Promise<PermissionStatus> {
+      history.push({ permission, method: "requestFullAccess" });
+      statuses[permission] = fullAccessResult;
+      return fullAccessResult;
     },
 
     setStatus(permission: string, status: PermissionStatus): void {
