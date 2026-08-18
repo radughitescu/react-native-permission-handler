@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1 — 2026-08-18
+
+Docs-only patch: README trimmed to current-behavior documentation (release history lives in this changelog). No code changes.
+
 ## 0.9.0 — 2026-08-18
 
 The **Limited-Access Upgrades & Full Library Access** release. `requestFullAccess()` is now first-class across all three engines (RNP via native pickers, Expo via auto-discovered modules, testing engine for test suites). Expo engine detects iOS limited-access states from both the literal `limited` status and the `accessPrivileges: "limited"` field. New recipes for iOS 18 limited contacts and location always-allow upgrades.
