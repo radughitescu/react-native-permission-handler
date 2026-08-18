@@ -4,6 +4,8 @@ import {
   type Permission,
   check,
   checkNotifications,
+  openContactPicker,
+  openPhotoPicker,
   openSettings,
   request,
   requestNotifications,
@@ -205,29 +207,6 @@ export interface RNPEngineOptions {
 
 /**
  * Creates a PermissionEngine backed by `react-native-permissions`.
- *
- * ### Known limitation: `requestFullAccess` is not implemented
- *
- * This engine does **not** implement `engine.requestFullAccess()`, which
- * powers the iOS 14+ limited photo library upgrade flow (the native
- * `PHPhotoLibrary.shared().presentLimitedLibraryPicker(from:)` picker).
- * `react-native-permissions` does not currently expose a JS binding for this
- * API, and this package has no native code of its own. As a result:
- *
- * - `PermissionGate`'s `renderLimited` prop still renders correctly (the
- *   `limited` state is derived from `check()`), but any button inside it
- *   that calls `handler.requestFullAccess()` will throw at runtime on RNP.
- * - Only the Expo engine (`createExpoEngine`) supports `requestFullAccess`
- *   end-to-end today, via `MediaLibrary.presentPermissionsPickerAsync()`.
- *
- * **Workarounds:**
- * - Use the Expo engine if your app is on Expo modules.
- * - Provide a custom engine that wraps your own native shim around
- *   `presentLimitedLibraryPicker`.
- *
- * **Future work:** ship a tiny optional native module (or contribute the
- * binding upstream to `react-native-permissions`) so the RNP engine can
- * route `requestFullAccess` through it on iOS.
  */
 export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngine {
   const photoPermissions = new Set<string>([
@@ -293,6 +272,25 @@ export function createRNPEngine(options: RNPEngineOptions = {}): PermissionEngin
       }
       lastRequestStatus.set(permission, normalized);
       return normalized;
+    },
+
+    async requestFullAccess(permission: string): Promise<PermissionStatus> {
+      const isPhoto = permission === permissionsBase.PHOTO_LIBRARY;
+      const isContacts = permission === permissionsBase.CONTACTS;
+      if (!isPhoto && !isContacts) {
+        throw new Error(
+          `[react-native-permission-handler] requestFullAccess is not supported for "${permission}" on the RNP engine. Supported permissions: Permissions.PHOTO_LIBRARY (iOS 14+) and Permissions.CONTACTS (iOS 18+).`,
+        );
+      }
+      const picker = isPhoto ? openPhotoPicker : openContactPicker;
+      if (typeof picker !== "function") {
+        throw new Error(
+          `[react-native-permission-handler] The installed react-native-permissions version does not export ${isPhoto ? "openPhotoPicker" : "openContactPicker"}(). Upgrade react-native-permissions to ${isPhoto ? ">=5.5.1" : ">=5.6.0"}.`,
+        );
+      }
+      await picker();
+      const status = (await check(permission as Permission)) as PermissionStatus;
+      return normalize(permission, status);
     },
 
     async openSettings(permission?: string): Promise<void> {

@@ -17,6 +17,8 @@ vi.mock("react-native-permissions", () => ({
   openSettings: vi.fn(),
   checkNotifications: vi.fn(),
   requestNotifications: vi.fn(),
+  openPhotoPicker: vi.fn(),
+  openContactPicker: vi.fn(),
   PERMISSIONS: {
     IOS: {
       BLUETOOTH: "ios.permission.BLUETOOTH",
@@ -35,6 +37,8 @@ vi.mock("react-native-permissions", () => ({
 import {
   check,
   checkNotifications,
+  openContactPicker,
+  openPhotoPicker,
   openSettings,
   request,
   requestNotifications,
@@ -547,5 +551,66 @@ describe("Permissions.BUNDLES", () => {
     expect(Array.isArray(bundle)).toBe(true);
     expect(bundle.length).toBe(1);
     expect(typeof bundle[0]).toBe("string");
+  });
+});
+
+describe("createRNPEngine — requestFullAccess", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("opens the limited photo picker and re-checks for PHOTO_LIBRARY", async () => {
+    vi.mocked(openPhotoPicker).mockResolvedValue(undefined);
+    vi.mocked(check).mockResolvedValue("granted");
+    const engine = createRNPEngine();
+
+    const result = await engine.requestFullAccess?.("ios.permission.PHOTO_LIBRARY");
+
+    expect(openPhotoPicker).toHaveBeenCalled();
+    expect(openContactPicker).not.toHaveBeenCalled();
+    expect(check).toHaveBeenCalledWith("ios.permission.PHOTO_LIBRARY");
+    expect(result).toBe("granted");
+  });
+
+  it("returns limited when the user keeps the current photo selection", async () => {
+    vi.mocked(openPhotoPicker).mockResolvedValue(undefined);
+    vi.mocked(check).mockResolvedValue("limited");
+    const engine = createRNPEngine();
+
+    const result = await engine.requestFullAccess?.("ios.permission.PHOTO_LIBRARY");
+
+    expect(result).toBe("limited");
+  });
+
+  it("opens the contact picker and re-checks for CONTACTS", async () => {
+    vi.mocked(openContactPicker).mockResolvedValue(undefined);
+    vi.mocked(check).mockResolvedValue("limited");
+    const engine = createRNPEngine();
+
+    const result = await engine.requestFullAccess?.("ios.permission.CONTACTS");
+
+    expect(openContactPicker).toHaveBeenCalled();
+    expect(openPhotoPicker).not.toHaveBeenCalled();
+    expect(check).toHaveBeenCalledWith("ios.permission.CONTACTS");
+    expect(result).toBe("limited");
+  });
+
+  it("rejects for permissions without a limited-access picker", async () => {
+    const engine = createRNPEngine();
+
+    await expect(engine.requestFullAccess?.("ios.permission.CAMERA")).rejects.toThrow(
+      /not supported for "ios\.permission\.CAMERA"/,
+    );
+    expect(openPhotoPicker).not.toHaveBeenCalled();
+    expect(openContactPicker).not.toHaveBeenCalled();
+  });
+
+  it("propagates the native rejection from unsupported platforms", async () => {
+    vi.mocked(openPhotoPicker).mockRejectedValue(new Error("Only supported by iOS 14 and above"));
+    const engine = createRNPEngine();
+
+    await expect(engine.requestFullAccess?.("ios.permission.PHOTO_LIBRARY")).rejects.toThrow(
+      "Only supported by iOS 14 and above",
+    );
   });
 });
