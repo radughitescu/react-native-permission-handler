@@ -29,13 +29,13 @@ Runtime behavior is additive; existing v0.8.2 code continues to work. The `ExpoE
   method: "requestFullAccess" }` entry. Allows test suites to simulate full-access picker flows
   without a native environment.
 - **New recipes** — iOS 18 limited contacts upgrade via `requestFullAccess()` and location
-  when-in-use→always upgrade via `openSettings("location")` deep-link.
+  when-in-use → always upgrade via a second `LOCATION_ALWAYS` handler (react-native-permissions >=5.5.3).
 
 ### Changes
 
-- **`usePermissionHandler().requestFullAccess` error messages** — now reflect which engines
-  support the permission. Unsupported-permission errors include a hint (e.g. "photos are only
-  available on the RNP engine").
+- **`usePermissionHandler().requestFullAccess` error message** — names the bundled engines that
+  support it (RNP >=5.5.1, Expo with `expo-media-library`/`expo-contacts`) and notes custom
+  engines must implement it.
 - **devDependency `react-native-permissions`** raised to `5.6.1` (peer range unchanged at
   `>=4.0.0`). Supports the Photos framework's `PHPhotoLibrary.presentLimitedLibraryPicker`
   (iOS 14+) and the Contacts framework's `CNContactStore`-based limited-access picker
