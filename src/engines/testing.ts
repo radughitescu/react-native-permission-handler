@@ -6,6 +6,7 @@ export interface TestingEngine extends PermissionEngine {
     permission: string;
     method: "check" | "request" | "openSettings" | "requestFullAccess";
   }>;
+  requestFullAccess(permission: string): Promise<PermissionStatus>;
   reset(): void;
 }
 

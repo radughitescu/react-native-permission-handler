@@ -90,7 +90,7 @@ describe("createTestingEngine", () => {
     it("upgrades the permission to granted and records history", async () => {
       const engine = createTestingEngine({ photo: "limited" });
 
-      const result = await engine.requestFullAccess?.("photo");
+      const result = await engine.requestFullAccess("photo");
 
       expect(result).toBe("granted");
       expect(await engine.check("photo")).toBe("granted");
@@ -103,7 +103,7 @@ describe("createTestingEngine", () => {
     it("honors fullAccessResult for simulating a kept limited selection", async () => {
       const engine = createTestingEngine({ photo: "limited" }, { fullAccessResult: "limited" });
 
-      const result = await engine.requestFullAccess?.("photo");
+      const result = await engine.requestFullAccess("photo");
 
       expect(result).toBe("limited");
       expect(await engine.check("photo")).toBe("limited");
