@@ -110,21 +110,24 @@ or branch directly on `state` if you want exclusive behavior.
 `requestFullAccess()` delegates to `engine.requestFullAccess()`, which is optional on the
 `PermissionEngine` interface.
 
-- **Expo engine** (`createExpoEngine`) — supported end-to-end via
-  `MediaLibrary.presentPermissionsPickerAsync`.
-- **RNP engine** (`createRNPEngine`) — **not yet implemented.** `react-native-permissions` does
-  not currently expose a JS binding for iOS `PHPhotoLibrary.presentLimitedLibraryPicker(from:)`,
-  and this package ships no native code of its own. Calling `handler.requestFullAccess()` on the
-  RNP engine throws a clear error at runtime. The `limited` state detection and `renderLimited`
-  branch still work on RNP (those only depend on `check()`) — only the upgrade button is gated.
-  Tracked as future work: ship a tiny optional native module or contribute the binding upstream.
+- **RNP engine** (`createRNPEngine`) — supported for `Permissions.PHOTO_LIBRARY` via
+  `openPhotoPicker()`, the native Limited Photo Picker. Requires
+  `react-native-permissions` >= 5.5.1. **Gotcha:** on an older `react-native-permissions` version
+  the engine throws a descriptive error naming the missing export and the required version floor,
+  instead of silently no-op'ing.
+- **Expo engine** (`createExpoEngine`) — supported end-to-end. Auto-discovers `expo-media-library`
+  and calls its `presentPermissionsPicker` (or the legacy `presentPermissionsPickerAsync`) for the
+  `mediaLibrary` and `imagePickerMediaLibrary` keys. Override the picker via
+  `config.fullAccessPickers`.
+- **Testing engine** (`createTestingEngine`) — simulates the picker: `requestFullAccess()` records
+  a `"requestFullAccess"` history entry and sets the permission's status to the
+  `fullAccessResult` option (default `"granted"`).
 - **Custom engine** — implement `requestFullAccess` on your adapter (e.g. wrap your own native
   shim around the iOS 15+ limited picker API).
 
-**Practical takeaway:** if you need the limited → full upgrade flow and you're on bare React
-Native, use `createExpoEngine` (it works outside Expo Go too, via the Expo modules) or provide a
-custom engine. Otherwise surface the `renderLimited` UI and point users to Settings via
-`openSettings()` as a fallback.
+Both the RNP and Expo engines re-check the permission's status after the picker resolves and
+return the normalized result, so `requestFullAccess()`'s return value always reflects the real
+post-picker state rather than an assumption that the user upgraded.
 
 See the [engines reference](../api/engines.md) for details.
 

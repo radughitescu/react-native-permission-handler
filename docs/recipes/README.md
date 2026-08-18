@@ -7,6 +7,8 @@ React Native app. Cross-links point to the [API reference](../api/README.md) for
 
 - [Limited photo access + upgrade](./limited-photo-upgrade.md) — iOS 14+ partial photo access,
   detect with `isLimited`, upgrade with `requestFullAccess()` and `renderLimited`.
+- [Limited contacts access + upgrade](./limited-contacts.md) — iOS 18+ partial contacts access,
+  the same `isLimited` + `requestFullAccess()` pattern with contacts copy.
 - [Onboarding permission wall](./onboarding-wall.md) — sequential multi-permission flow with
   stable `id` keys and `resume()` for settings round-trips.
 - [Voice note composer](./voice-note-composer.md) — inline microphone access using

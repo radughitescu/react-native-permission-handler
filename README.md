@@ -138,9 +138,9 @@ The core of the library is a pure state machine that drives the entire permissio
      +-------+ +------+ +------------+   +-------+ to blockedPrompt
 ```
 
-`limited` is a sibling of `granted` — iOS 14+ partial photo access. `isGranted` is `true` for
-both, but `isLimited` lets you surface an upgrade prompt. See the full state list in
-[docs/api/types.md](./docs/api/types.md).
+`limited` is a sibling of `granted` — iOS 14+ partial photo access, or iOS 18+ partial contacts
+access. `isGranted` is `true` for both, but `isLimited` lets you surface an upgrade prompt. See
+the full state list in [docs/api/types.md](./docs/api/types.md).
 
 ## Core APIs
 
@@ -180,6 +180,8 @@ Drop-in solutions to real problems. See [docs/recipes/](./docs/recipes/README.md
 
 - **[Limited photo access + upgrade](./docs/recipes/limited-photo-upgrade.md)** — iOS 14+ partial
   grants, `renderLimited`, and `requestFullAccess()`.
+- **[Limited contacts access + upgrade](./docs/recipes/limited-contacts.md)** — iOS 18+ partial
+  contacts grants, the same `isLimited` + `requestFullAccess()` pattern.
 - **[Background location](./docs/recipes/background-location.md)** — sequential
   `Permissions.BUNDLES.LOCATION_BACKGROUND` flow.
 - **[Onboarding permission wall](./docs/recipes/onboarding-wall.md)** — sequential wall with

@@ -24,9 +24,9 @@ An engine is responsible for:
 - Opening the correct settings screen for the platform. On iOS, the optional `permission`
   parameter enables best-effort deep-linking into the per-permission Settings sub-page; engines
   fall back to generic Settings if the deep-link fails.
-- Optionally, implementing `requestFullAccess` for the iOS 14+ photo-library upgrade flow. Hooks
-  call this via `PermissionHandlerResult.requestFullAccess()` and throw a clear error if it is not
-  implemented.
+- Optionally, implementing `requestFullAccess` for the iOS limited-access upgrade flow (14+ photo
+  library, 18+ contacts). Hooks call this via `PermissionHandlerResult.requestFullAccess()` and
+  throw a clear error if it is not implemented.
 
 ### iOS Settings deep-linking
 
@@ -92,6 +92,26 @@ need to call it explicitly. Call `createRNPEngine({...})` explicitly when you ne
 The RNP adapter handles `"notifications"` internally by routing to `checkNotifications` and
 `requestNotifications`.
 
+### `requestFullAccess` on the RNP engine
+
+Supported for two permissions, each gated behind a `react-native-permissions` version floor:
+
+| Permission | Native picker | Version floor |
+|------------|----------------|----------------|
+| `Permissions.PHOTO_LIBRARY` (iOS 14+ limited access) | `openPhotoPicker()` | `>=5.5.1` |
+| `Permissions.CONTACTS` (iOS 18+ limited access) | `openContactPicker()` | `>=5.6.0` |
+
+Calling `requestFullAccess()` for any other permission throws. Calling it on an older
+`react-native-permissions` version — where the picker export doesn't exist yet — throws a
+descriptive error naming the missing export and the required version floor. After the picker
+resolves, the engine re-checks the permission through `check()` and returns the normalized
+status.
+
+**Gotcha:** `react-native-permissions` >= 5.5.3 is also the floor for two related status reads
+that `requestFullAccess` flows depend on: `request(Permissions.CONTACTS)` returns `limited` on
+an iOS 18 partial contacts grant, and `check(Permissions.LOCATION_ALWAYS)` returns `denied`
+(still requestable) rather than `blocked` after only "When In Use" has been granted.
+
 ### `Permissions.BUNDLES`
 
 Platform-aware presets that resolve to `string[]` at runtime. Designed to be passed to
@@ -147,12 +167,39 @@ setDefaultEngine(
 
 Expo status mapping:
 
-| Expo `status` | `canAskAgain` | Mapped to |
-|---------------|---------------|-----------|
-| `"granted"` | — | `"granted"` |
-| `"undetermined"` | — | `"denied"` |
-| `"denied"` | `true` | `"denied"` |
-| `"denied"` | `false` | `"blocked"` |
+| Expo `status` | `accessPrivileges` | `canAskAgain` | Mapped to |
+|---------------|---------------------|---------------|-----------|
+| `"granted"` | — | — | `"granted"` |
+| `"granted"` | `"limited"` | — | `"limited"` |
+| `"limited"` | — | — | `"limited"` |
+| `"undetermined"` | — | — | `"denied"` |
+| `"denied"` | — | `true` | `"denied"` |
+| `"denied"` | — | `false` | `"blocked"` |
+
+### `requestFullAccess` on the Expo engine
+
+Auto-discovers pickers from installed Expo modules:
+
+- **`expo-media-library`** — for the `mediaLibrary` and `imagePickerMediaLibrary` keys, calls
+  `presentPermissionsPicker()` (or the legacy `presentPermissionsPickerAsync()` on older
+  versions).
+- **`expo-contacts`** — for the `contacts` key, calls `presentAccessPicker()` (or the legacy
+  `presentAccessPickerAsync()`).
+
+Pass `config.fullAccessPickers` to override or add pickers for other keys:
+
+```ts
+createExpoEngine({
+  fullAccessPickers: {
+    mediaLibrary: async () => {
+      await MediaLibrary.presentPermissionsPickerAsync();
+    },
+  },
+});
+```
+
+After the picker resolves, the engine re-checks the permission and returns the normalized
+status. Calling `requestFullAccess()` for a key with no discovered or configured picker throws.
 
 ## `createTestingEngine(initialStatuses?, options?)`
 
@@ -179,6 +226,21 @@ grant on `request()`.
 shortcut where `request()` returns `"granted"` for unseeded permissions (while `check()` still
 returns `"denied"`). Useful when you want to test grant flows without enumerating every
 permission up front.
+
+**`options.fullAccessResult`** — the status `requestFullAccess()` sets after simulating the
+picker. Defaults to `"granted"`. Every call records a `{ permission, method: "requestFullAccess" }`
+entry in `getRequestHistory()`, and sets the permission's stored status to `fullAccessResult` so
+the next `check()` reflects the upgrade.
+
+```ts
+const engine = createTestingEngine(
+  { camera: "limited" },
+  { fullAccessResult: "granted" },
+);
+
+await engine.requestFullAccess("camera"); // "granted"
+engine.getRequestHistory(); // [{ permission: "camera", method: "requestFullAccess" }]
+```
 
 ```ts
 // Symmetric default: both check and request return "denied" for unseeded permissions.

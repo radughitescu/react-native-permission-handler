@@ -81,8 +81,12 @@ expect(engine.getRequestHistory().filter((e) => e.method === "request")).toHaveL
 
 ```ts
 interface TestingEngine extends PermissionEngine {
+  requestFullAccess(permission: string): Promise<PermissionStatus>;
   setStatus(permission: string, status: PermissionStatus): void;
-  getRequestHistory(): Array<{ permission: string; method: "check" | "request" }>;
+  getRequestHistory(): Array<{
+    permission: string;
+    method: "check" | "request" | "openSettings" | "requestFullAccess";
+  }>;
   reset(): void;
 }
 ```
@@ -91,6 +95,9 @@ interface TestingEngine extends PermissionEngine {
   `check()` or `request()`.
 - `getRequestHistory` returns the full ordered history of calls — useful for "did we call request
   exactly once after the user tapped Allow?" style assertions.
+- `requestFullAccess` simulates the limited → full-access picker: it records a
+  `{ permission, method: "requestFullAccess" }` history entry and sets the permission's status to
+  the `fullAccessResult` option (default `"granted"`).
 - `reset` clears the history and restores the `initialStatuses` map.
 
 ## Per-permission defaults
@@ -119,6 +126,24 @@ const engine = createTestingEngine({}, { autoGrantUnset: true });
 await engine.check("camera");   // "denied" (symmetric default)
 await engine.request("camera"); // "granted" (because autoGrantUnset is on)
 ```
+
+### Opt-in: `fullAccessResult` for testing the limited → full-access upgrade
+
+Drive `handler.requestFullAccess()` flows (limited photo access, limited contacts access) without
+a real native picker:
+
+```ts
+const engine = createTestingEngine(
+  { camera: "limited" },
+  { fullAccessResult: "granted" },
+);
+
+await engine.requestFullAccess("camera"); // "granted"
+engine.getRequestHistory(); // [{ permission: "camera", method: "requestFullAccess" }]
+```
+
+`fullAccessResult` defaults to `"granted"`. Set it to `"limited"` to assert your UI's fallback
+behavior when the user re-opens the picker but doesn't upgrade.
 
 ## Using `createNoopEngine` for Storybook and web
 

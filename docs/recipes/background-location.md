@@ -97,52 +97,59 @@ call `perms.resume()` to continue from the current ungranted step.
 
 ## iOS "Always" upgrades
 
-On iOS, granting "When In Use" is the whole flow that this bundle can drive today. iOS does not
-model "Always" as a separately requestable permission — the system expects you to call
-`requestAlwaysAuthorization` as a second step on the already-granted permission, and **the OS
-only shows the "Always Allow" dialog automatically the second time a background location event
-fires in-app,** not on demand from your UI. There is no in-app API to force the prompt.
-
-The practical recovery path is to send the user to Settings and let them flip "When Using the
-App" to "Always." As of v0.8.0, `engine.openSettings("location")` deep-links into the iOS
-Location Services sub-page, which makes this one tap away from the app. The library
-automatically passes the hook's permission identifier to the engine, so calling
-`handler.openSettings()` from a button handler does the right thing on both platforms.
+`Permissions.BUNDLES.LOCATION_BACKGROUND` on iOS intentionally contains only
+`[LOCATION_WHEN_IN_USE]` — iOS models Core Location as a single authorization, so the bundle only
+drives the foreground half. Request "Always" as a follow-up step with a second handler for
+`Permissions.LOCATION_ALWAYS`, gated on `LOCATION_WHEN_IN_USE` already being granted:
 
 ```tsx
-function AlwaysAllowUpgradeButton() {
-  const location = usePermissionHandler({
-    permission: Permissions.LOCATION_WHEN_IN_USE,
-    prePrompt: {
-      title: "Location while using the app",
-      message: "We need foreground location first.",
-    },
-    blockedPrompt: {
-      title: "Location blocked",
-      message: "Enable location in Settings.",
-    },
-  });
+const whenInUse = usePermissionHandler({
+  permission: Permissions.LOCATION_WHEN_IN_USE,
+  prePrompt: { title: "Location", message: "Find nearby stops." },
+});
 
-  if (!location.isGranted) return null;
+const always = usePermissionHandler({
+  permission: Permissions.LOCATION_ALWAYS,
+  prePrompt: {
+    title: "Background location",
+    message: "Keep tracking your run while the screen is off.",
+  },
+  autoCheck: false,
+  renderPrePrompt: ({ onConfirm, onCancel }) => (
+    <AlwaysUpgradeModal onAllow={onConfirm} onSkip={onCancel} />
+  ),
+});
+
+function AlwaysAllowUpgradeButton() {
+  if (!whenInUse.isGranted) return null;
 
   return (
     <View>
-      <Text>Tracking works while the app is open. For background tracking,</Text>
-      <Text>switch location access to "Always" in Settings.</Text>
-      <Button title="Open Location settings" onPress={location.openSettings} />
+      <Text>Tracking works while the app is open. For background tracking, allow "Always."</Text>
+      <Button title="Allow Always" onPress={always.check} />
+      {always.ui}
     </View>
   );
 }
 ```
 
+`always.check` re-checks `LOCATION_ALWAYS` through the engine; once granted, `always.ui` renders
+`renderPrePrompt`'s output and `onConfirm` fires `always.request()`, which triggers the native
+"Always" system dialog.
+
+**Gotcha:** on iOS, request `LOCATION_ALWAYS` only after `LOCATION_WHEN_IN_USE` is granted —
+requesting it first fails. This flow requires `react-native-permissions` >= 5.5.3, where
+`check(LOCATION_ALWAYS)` correctly reports `denied` (requestable) rather than `blocked` once
+"When In Use" is granted.
+
+If the user denies or blocks the "Always" system dialog, fall back to `always.openSettings()` —
+as of v0.8.0, `engine.openSettings("location")` deep-links into the iOS Location Services
+sub-page, so flipping "When Using the App" to "Always" is one tap away.
+
 On Android, `openSettings` already lands on the app-specific permissions page (the `permission`
 parameter is ignored), and `Permissions.BUNDLES.LOCATION_BACKGROUND` handles the second prompt
 via the `ACCESS_BACKGROUND_LOCATION` entry. The iOS branch above is the asymmetry that the
 bundle cannot hide.
-
-A dedicated `upgradeToAlways()` helper that triggers the iOS system re-prompt in-app is tracked
-as future work (pending upstream `react-native-permissions` exposing the relevant API). For now,
-the Settings deep-link is the recommended pattern.
 
 ## Handling partial grants (Android)
 

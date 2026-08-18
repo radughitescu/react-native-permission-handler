@@ -2,17 +2,22 @@
 
 ## `PermissionStatus`
 
-The unified permission status owned by this library. Engines must map their native statuses to
-these values.
+Permission status values owned by this library. Engines must map their native statuses to these
+values.
 
 ```ts
 type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
 ```
 
+The `limited` status is emitted for the iOS 14+ photo library ("Selected Photos") and, on
+iOS 18+, for limited contacts access (`react-native-permissions` >= 5.5.3 and the Expo engine
+both report it). Any engine may return `limited` for other permissions; the state machine and
+`isLimited` handle it uniformly.
+
 | Value | Meaning |
 |-------|---------|
 | `granted` | Permission is fully granted. Show the protected content. |
-| `limited` | iOS 14+ partial grant. Reliably emitted for the iOS photo library ("Selected Photos"); feature works, upgrade flow is available via `requestFullAccess()`. **iOS 18+ caveat:** Apple added a conceptually similar limited-contacts mode, but whether engines return `limited` for contacts on iOS 18 is RNP/Expo-dependent. If you're shipping limited-contacts UX, test on a real iOS 18 device first — the state machine and `isLimited` helper handle it correctly when the engine emits it, but neither RNP nor Expo guarantees emission at the time of v0.8.0. |
+| `limited` | Partial grant. Photo library (iOS 14+) or contacts (iOS 18+) — feature works, upgrade flow is available via `requestFullAccess()`. |
 | `denied` | Not granted but still requestable — system dialog can still be shown. |
 | `blocked` | Permanently denied. Only Settings can fix it. |
 | `unavailable` | The device doesn't support this feature. Terminal state. |

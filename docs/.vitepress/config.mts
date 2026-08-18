@@ -67,6 +67,7 @@ export default defineConfig({
               { text: "Background Location", link: "/recipes/background-location" },
               { text: "BLE Device Pairing", link: "/recipes/ble-device-pairing" },
               { text: "Limited Photo Upgrade", link: "/recipes/limited-photo-upgrade" },
+              { text: "Limited Contacts Upgrade", link: "/recipes/limited-contacts" },
               { text: "Location Accuracy UI", link: "/recipes/location-accuracy" },
               { text: "Speech Recognition", link: "/recipes/speech-recognition" },
               { text: "Voice Note Composer", link: "/recipes/voice-note-composer" },
