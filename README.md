@@ -258,29 +258,6 @@ If you're unsure whether your use case fits, a good test: does your permission p
 system-standard "Allow / Don't Allow" dialog? If yes, the library probably fits. If it's a custom
 auth flow or a per-scope consent screen, look elsewhere.
 
-## What's new in v0.7.0
-
-- **`requestFullAccess()`** on the hook result — upgrade from limited → granted without leaving
-  the app. Engine-routed, throws with a clear error if unsupported.
-- **`renderLimited`** on `PermissionGate` — custom UI during iOS 14+ partial photo access.
-- **`Permissions.BUNDLES`** — `BLUETOOTH`, `LOCATION_BACKGROUND`, and `CALENDARS_WRITE_ONLY`
-  presets that resolve to the correct `string[]` per platform and OS version.
-- **`MultiPermissionEntry.id`** — stable cross-platform keys for `statuses`/`handlers` records.
-- **`resume()`** on `useMultiplePermissions` — restart a stopped sequential flow from current
-  ungranted statuses, preserving already-granted progress.
-- **`skipPrePrompt: boolean | "android"`** — one-tap composer flows without a pre-prompt modal,
-  safely scoped to Android only.
-- **Optional `prePrompt` / `blockedPrompt`** config — custom-UI users no longer need dummy
-  configs to satisfy types.
-- **Android 16 auto-recovery** — 5 s default `requestTimeout` on API 36+, routed to the blocked
-  prompt on expiry.
-- **`createRNPEngine({ normalizeAndroid, normalizePhotoLibrary })`** — opt-in Android status
-  normalization (pre-13 `POST_NOTIFICATIONS`, dialog-dismiss misreports, stale check cache) and
-  iOS photo-library `unavailable → blocked` rewrite.
-
-See [docs/api/](./docs/api/README.md) and [docs/recipes/](./docs/recipes/README.md) for full
-details.
-
 ## Requirements
 
 - React Native >= 0.76
