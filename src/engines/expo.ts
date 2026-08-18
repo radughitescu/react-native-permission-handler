@@ -30,7 +30,7 @@ export interface ExpoEngine extends PermissionEngine {
    * Surface design for the hook-level API lives in v0.9.0 planning.
    */
   getLastLocationAccuracy(): LocationAccuracy | null;
-  requestFullAccess?(permission: string): Promise<PermissionStatus>;
+  requestFullAccess(permission: string): Promise<PermissionStatus>;
 }
 
 /**

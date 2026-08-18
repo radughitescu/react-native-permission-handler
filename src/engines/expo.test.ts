@@ -421,7 +421,7 @@ describe("createExpoEngine", () => {
         },
       });
 
-      const result = await engine.requestFullAccess?.("mediaLibrary");
+      const result = await engine.requestFullAccess("mediaLibrary");
 
       expect(present).toHaveBeenCalled();
       expect(result).toBe("granted");
@@ -430,7 +430,7 @@ describe("createExpoEngine", () => {
     it("rejects for permissions without a configured picker", async () => {
       const engine = createExpoEngine({ permissions: {} });
 
-      await expect(engine.requestFullAccess?.("camera")).rejects.toThrow(
+      await expect(engine.requestFullAccess("camera")).rejects.toThrow(
         /not available for "camera"/,
       );
     });
