@@ -339,4 +339,58 @@ describe("createExpoEngine", () => {
       expect(await engine.check("locationBackground")).toBe("blocked");
     });
   });
+
+  describe("createExpoEngine — limited status mapping", () => {
+    it("maps granted + accessPrivileges limited to limited", async () => {
+      const engine = createExpoEngine({
+        permissions: {
+          mediaLibrary: {
+            get: async () => ({
+              status: "granted",
+              canAskAgain: true,
+              accessPrivileges: "limited",
+            }),
+            request: async () => ({
+              status: "granted",
+              canAskAgain: true,
+              accessPrivileges: "limited",
+            }),
+          },
+        },
+      });
+
+      expect(await engine.check("mediaLibrary")).toBe("limited");
+      expect(await engine.request("mediaLibrary")).toBe("limited");
+    });
+
+    it("maps granted + accessPrivileges all to granted", async () => {
+      const engine = createExpoEngine({
+        permissions: {
+          mediaLibrary: {
+            get: async () => ({ status: "granted", canAskAgain: true, accessPrivileges: "all" }),
+            request: async () => ({
+              status: "granted",
+              canAskAgain: true,
+              accessPrivileges: "all",
+            }),
+          },
+        },
+      });
+
+      expect(await engine.check("mediaLibrary")).toBe("granted");
+    });
+
+    it("maps a literal limited status to limited", async () => {
+      const engine = createExpoEngine({
+        permissions: {
+          contacts: {
+            get: async () => ({ status: "limited", canAskAgain: true }),
+            request: async () => ({ status: "limited", canAskAgain: true }),
+          },
+        },
+      });
+
+      expect(await engine.check("contacts")).toBe("limited");
+    });
+  });
 });

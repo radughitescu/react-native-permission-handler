@@ -11,7 +11,7 @@ export type LocationAccuracy = "full" | "reduced";
 type ExpoPermissionResponse = {
   status: string;
   canAskAgain: boolean;
-  /** iOS 14+ details block returned by expo-location (SDK 55+). */
+  accessPrivileges?: "all" | "limited" | "none";
   ios?: { accuracy?: LocationAccuracy };
 };
 
@@ -72,7 +72,10 @@ function resolveEntry(entry: ExpoPermissionEntry): {
 }
 
 function mapExpoStatus(result: ExpoPermissionResponse): PermissionStatus {
-  if (result.status === "granted") return "granted";
+  if (result.status === "limited") return "limited";
+  if (result.status === "granted") {
+    return result.accessPrivileges === "limited" ? "limited" : "granted";
+  }
   if (result.status === "undetermined") return "denied";
   if (result.status === "denied") {
     return result.canAskAgain ? "denied" : "blocked";
