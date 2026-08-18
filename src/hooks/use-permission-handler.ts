@@ -175,9 +175,8 @@ export function usePermissionHandler(config: PermissionHandlerConfig): Permissio
     if (!engine.requestFullAccess) {
       throw new Error(
         "[react-native-permission-handler] The current engine does not implement requestFullAccess(). " +
-          "The RNP engine cannot yet call iOS `presentLimitedLibraryPicker` because " +
-          "react-native-permissions does not expose a JS binding for it (tracked as future work). " +
-          "Use the Expo engine (which supports MediaLibrary.presentPermissionsPickerAsync) or provide a custom engine with a native shim.",
+          "The bundled RNP engine (react-native-permissions >=5.5.1) and Expo engine (expo-media-library / expo-contacts installed) support it; " +
+          "custom engines must implement requestFullAccess themselves.",
       );
     }
     const gen = generation.current;

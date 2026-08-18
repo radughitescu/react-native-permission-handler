@@ -1,15 +1,3 @@
-/**
- * Permission status values owned by this library.
- * Engines must map their native statuses to these values.
- *
- * The `limited` status is currently emitted by engines only for the iOS
- * photo library (iOS 14+, "Selected Photos"). iOS 18+ added a conceptually
- * similar limited-contacts mode, but whether engines return `limited` for
- * contacts is RNP/Expo-dependent — test on an iOS 18 device before relying
- * on it. If your engine returns `limited` for a permission the library
- * hasn't seen before, the state machine and the `isLimited` helper will
- * still handle it correctly; you just need to document the scope.
- */
 export type PermissionStatus = "granted" | "denied" | "blocked" | "limited" | "unavailable";
 
 /**
@@ -206,12 +194,6 @@ export interface PermissionHandlerResult {
   dismissBlocked: () => void;
   openSettings: () => void;
   reset: () => void;
-  /**
-   * Request full access when currently in the `limited` state (iOS 14+ photo
-   * library partial access). Calls `engine.requestFullAccess()` and re-checks
-   * the permission afterwards to update the hook state. Throws a clear error
-   * if the current engine does not implement `requestFullAccess`.
-   */
   requestFullAccess: () => Promise<PermissionStatus>;
   /**
    * Force a fresh permission request, bypassing `check()`. Use this when the
