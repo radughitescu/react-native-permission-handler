@@ -3,6 +3,7 @@ import { Permissions } from "react-native-permission-handler/rnp";
 
 export const CAMERA = Permissions.CAMERA;
 export const MICROPHONE = Permissions.MICROPHONE;
+export const CONTACTS = Permissions.CONTACTS;
 
 export function Flag({ label, active }: { label: string; active: boolean }) {
   return (

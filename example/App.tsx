@@ -18,6 +18,7 @@ type Demo =
   | "location-bundle"
   | "refresh"
   | "hook-ui"
+  | "contacts"
   | null;
 
 const HookDemo = React.lazy(() => import("./demos/HookDemo"));
@@ -27,6 +28,7 @@ const ForegroundRecheckDemo = React.lazy(() => import("./demos/ForegroundRecheck
 const LocationBundleDemo = React.lazy(() => import("./demos/LocationBundleDemo"));
 const RefreshDemo = React.lazy(() => import("./demos/RefreshDemo"));
 const HookUIDemo = React.lazy(() => import("./demos/HookUIDemo"));
+const ContactsDemo = React.lazy(() => import("./demos/ContactsDemo"));
 
 export default function App() {
   const [demo, setDemo] = useState<Demo>(null);
@@ -81,6 +83,11 @@ export default function App() {
                 v0.8.0 — imperative flows without PermissionGate
               </Text>
             </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuBtn} onPress={() => setDemo("contacts")}>
+              <Text style={styles.menuBtnTitle}>Limited contacts + requestFullAccess</Text>
+              <Text style={styles.menuBtnDesc}>iOS 18+ limited contacts upgrade flow</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -99,6 +106,7 @@ export default function App() {
                 {demo === "location-bundle" && <LocationBundleDemo />}
                 {demo === "refresh" && <RefreshDemo />}
                 {demo === "hook-ui" && <HookUIDemo />}
+                {demo === "contacts" && <ContactsDemo />}
               </Suspense>
             </ErrorBoundary>
           </>
